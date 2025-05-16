@@ -10,17 +10,18 @@
 #define OLED_RESET -1
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+// When ready to do each additional menu state, uncomment one at a time and do each individually, test and then move on
 enum menuState {
   MAIN,
   OSC_A,
-  OSC_B,
-  FILTER,
-  AMP_ENV,
-  FILTER_ENV,
+  // OSC_B,
+  // FILTER,
+  // AMP_ENV,
+  // FILTER_ENV,
   WAVEFORM_A,
   PITCH_A,
   PULSE_WIDTH_A,
-  OSC_A_ON
+  OSC_A_ON_OFF
 };
 
 menuState currentMenu = MAIN;
@@ -40,6 +41,10 @@ const char* waveformMenuItems[] = {"Sine", "Sawtooth", "Square", "Triangle", "Pu
 int waveformMenuIndex = 0;
 const int waveformMenuLength = sizeof(waveformMenuItems) / 4;
 int waveformMenuPageNumber = 0;
+
+int oscAPitchOffset = 0;
+float oscAPulseWidth = 1.0f;
+bool oscAOn = true;
 
 Encoder myEncoder(2, 3);
 const int encoderSwitchPin = 20;
@@ -81,21 +86,40 @@ void forward() {
       updateMenu(waveformMenuPageNumber, waveformMenuIndex, waveformMenuLength, waveformMenuItems);
       break;
 
-    case OSC_B:
+    case PITCH_A:
+      oscAPitchOffset++;
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.setTextColor(SSD1306_WHITE);
+      display.println("Pitch shft");
+      display.print(oscAPitchOffset);
+      display.print(" st");
+      display.display();
+      break;
+
+    case PULSE_WIDTH_A:
 
       break;
 
-    case FILTER:
+    case OSC_A_ON_OFF:
 
       break;
 
-    case AMP_ENV:
+    // case OSC_B:
 
-      break;
+    //   break;
 
-    case FILTER_ENV:
+    // case FILTER:
 
-      break;
+    //   break;
+
+    // case AMP_ENV:
+
+    //   break;
+
+    // case FILTER_ENV:
+
+    //   break;
   }
 }
 
@@ -117,21 +141,40 @@ void backward() {
       updateMenu(waveformMenuPageNumber, waveformMenuIndex, waveformMenuLength, waveformMenuItems);
       break;
 
-    case OSC_B:
+    case PITCH_A:
+      oscAPitchOffset--;
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.setTextColor(SSD1306_WHITE);
+      display.println("Pitch shft");
+      display.print(oscAPitchOffset);
+      display.print(" st");
+      display.display();
+      break;
+
+    case PULSE_WIDTH_A:
 
       break;
 
-    case FILTER:
+    case OSC_A_ON_OFF:
 
       break;
 
-    case AMP_ENV:
+    // case OSC_B:
 
-      break;
+    //   break;
 
-    case FILTER_ENV:
+    // case FILTER:
 
-      break;
+    //   break;
+
+    // case AMP_ENV:
+
+    //   break;
+
+    // case FILTER_ENV:
+
+    //   break;
   }
 }
 
@@ -140,37 +183,82 @@ void select() {
     case MAIN:
       if (mainMenuIndex == 0) {
         // Osc A
+        currentMenu = OSC_A;
+        oscAMenuPageNumber = 0;
+        oscAMenuIndex = 0;
         display.setCursor(0,0);
         updateMenu(oscAMenuPageNumber, oscAMenuIndex, oscAMenuLength, oscAMenuItems);
-        currentMenu = OSC_A;
-
       }
 
       break;
 
     case OSC_A:
       if (oscAMenuIndex == 0) {
-        display.setCursor(0,0);
         currentMenu = WAVEFORM_A;
+        waveformMenuIndex = 0;
+        waveformMenuPageNumber = 0;
         updateMenu(waveformMenuPageNumber, waveformMenuIndex, waveformMenuLength, waveformMenuItems);
+      } else if (oscAMenuIndex == 1) {
+        currentMenu = PITCH_A;
+        // show the number representing pitch for osc A, turning the encoder will update it in semitones
+        display.clearDisplay();
+        display.setCursor(0, 0);
+        display.setTextColor(SSD1306_WHITE);
+        display.println("Pitch shft");
+        display.print(oscAPitchOffset);
+        display.print(" st");
+        display.display();
       }
       break;
 
-    case OSC_B:
-
+// works, just need it to actually alter the waveforms now
+    case WAVEFORM_A:
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.setTextColor(SSD1306_WHITE);
+      display.println("Selected:");
+      if (waveformMenuIndex == 0){
+        display.println("Sine");
+      } else if (waveformMenuIndex == 1) {
+        display.println("Sawtooth");
+      } else if (waveformMenuIndex == 2) {
+        display.println("Square");
+      } else if (waveformMenuIndex == 3) {
+        display.println("Triangle");
+      } else if (waveformMenuIndex == 4) {
+        display.println("Pulse");
+      }
+      display.display();
       break;
 
-    case FILTER:
-
+    
+    case PITCH_A:
+      // do nothing
       break;
 
-    case AMP_ENV:
-
+    case PULSE_WIDTH_A:
+      // do nothing
       break;
 
-    case FILTER_ENV:
-
+    case OSC_A_ON_OFF:
+      // do nothing
       break;
+
+    // case OSC_B:
+
+    //   break;
+
+    // case FILTER:
+
+    //   break;
+
+    // case AMP_ENV:
+
+    //   break;
+
+    // case FILTER_ENV:
+
+    //   break;
   }
 }
 
@@ -180,7 +268,7 @@ void goBack() {
       break;
 
     case OSC_A:
-      // display.setCursor(0,0);
+      display.setCursor(0,0);
       currentMenu = MAIN;
       mainMenuIndex = 0;
       mainMenuPageNumber = 0;
@@ -194,21 +282,42 @@ void goBack() {
       updateMenu(oscAMenuPageNumber, oscAMenuIndex, oscAMenuLength, oscAMenuItems);
       break;
 
-    case OSC_B:
-
+    case PITCH_A:
+      currentMenu = OSC_A;
+      oscAMenuIndex = 0;
+      oscAMenuPageNumber = 0;
+      updateMenu(oscAMenuPageNumber, oscAMenuIndex, oscAMenuLength, oscAMenuItems);
       break;
 
-    case FILTER:
-
+    case PULSE_WIDTH_A:
+      currentMenu = OSC_A;
+      oscAMenuIndex = 0;
+      oscAMenuPageNumber = 0;
+      updateMenu(oscAMenuPageNumber, oscAMenuIndex, oscAMenuLength, oscAMenuItems);
       break;
 
-    case AMP_ENV:
-
+    case OSC_A_ON_OFF:
+      currentMenu = OSC_A;
+      oscAMenuIndex = 0;
+      oscAMenuPageNumber = 0;
+      updateMenu(oscAMenuPageNumber, oscAMenuIndex, oscAMenuLength, oscAMenuItems);
       break;
 
-    case FILTER_ENV:
+    // case OSC_B:
 
-      break;
+    //   break;
+
+    // case FILTER:
+
+    //   break;
+
+    // case AMP_ENV:
+
+    //   break;
+
+    // case FILTER_ENV:
+
+    //   break;
   }
 }
 
