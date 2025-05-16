@@ -1,3 +1,4 @@
+#include <Bounce.h>
 #include <Encoder.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -15,30 +16,42 @@ enum menuState {
   OSC_B,
   FILTER,
   AMP_ENV,
-  FILTER_ENV
+  FILTER_ENV,
+  WAVEFORM_A,
+  PITCH_A,
+  PULSE_WIDTH_A,
+  OSC_A_ON
 };
 
 menuState currentMenu = MAIN;
 
 const char* mainMenuItems[] = {"Osc A", "Osc B", "Amp Env", "Filter", "Filter Env"};
 int mainMenuIndex = 0;
-const int mainMenuLength = sizeof(mainMenuItems) / sizeof(mainMenuItems[0]); // Gets length by taking the memory size of each
-int mainPageNumber = 0;
+const int mainMenuLength = sizeof(mainMenuItems) / 4;
+int mainMenuPageNumber = 0;
 const int itemsPerPage = 3;
 
-const char* oscAItems[] = {"Waveform", "Pitch", "Pulse Width", "Osc On/Off"};
+const char* oscAMenuItems[] = {"Waveform", "Pitch", "Pulse Wdth", "Osc On/Off"};
 int oscAMenuIndex = 0;
-const int oscAMenuLength = sizeof(oscAItems) / sizeof(oscAItems[0]);
-int oscAPageNumber = 0;
+const int oscAMenuLength = sizeof(oscAMenuItems) / 4;
+int oscAMenuPageNumber = 0;
 
-
+const char* waveformMenuItems[] = {"Sine", "Sawtooth", "Square", "Triangle", "Pulse"};
+int waveformMenuIndex = 0;
+const int waveformMenuLength = sizeof(waveformMenuItems) / 4;
+int waveformMenuPageNumber = 0;
 
 Encoder myEncoder(2, 3);
-const int encoderSwitch = 20;
+const int encoderSwitchPin = 20;
+Bounce encoderSwitch = Bounce(20,10);
 long lastEncoderPosition = 0;
 
+Bounce returnButton = Bounce(4, 10);
+const int returnButtonPin = 4;
+
 void setup() {
-  pinMode(encoderSwitch, INPUT_PULLUP);
+  pinMode(encoderSwitchPin, INPUT_PULLUP);
+  pinMode(returnButtonPin, INPUT_PULLUP);
 
     if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     // SSD1306 allocation failed
@@ -47,6 +60,7 @@ void setup() {
 
   display.clearDisplay();
   display.setTextSize(2);
+  updateMenu(mainMenuPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
 }
 
 // needs to be aware of proper menu and update everything accordingly
@@ -54,14 +68,17 @@ void forward() {
   switch (currentMenu) {
     case MAIN:
       mainMenuIndex = (mainMenuIndex + 1) % mainMenuLength;
-      updateMenu(mainPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
-      Serial.println(mainMenuIndex);
+      updateMenu(mainMenuPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
       break;
     
     case OSC_A:
       oscAMenuIndex = (oscAMenuIndex + 1) % oscAMenuLength;
-      updateMenu(oscAPageNumber, oscAMenuIndex, oscAMenuLength, oscAItems);
-      Serial.println(oscAMenuIndex);
+      updateMenu(oscAMenuPageNumber, oscAMenuIndex, oscAMenuLength, oscAMenuItems);
+      break;
+
+    case WAVEFORM_A:
+      waveformMenuIndex = (waveformMenuIndex + 1) % waveformMenuLength;
+      updateMenu(waveformMenuPageNumber, waveformMenuIndex, waveformMenuLength, waveformMenuItems);
       break;
 
     case OSC_B:
@@ -87,12 +104,17 @@ void backward() {
   switch (currentMenu) {
     case MAIN:
       mainMenuIndex = (mainMenuIndex - 1) % mainMenuLength;
-      updateMenu(mainPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
+      updateMenu(mainMenuPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
       break;
     
     case OSC_A:
       oscAMenuIndex = (oscAMenuIndex - 1) % oscAMenuLength;
-      updateMenu(oscAPageNumber, oscAMenuIndex, oscAMenuLength, oscAItems);
+      updateMenu(oscAMenuPageNumber, oscAMenuIndex, oscAMenuLength, oscAMenuItems);
+      break;
+
+    case WAVEFORM_A:
+      waveformMenuIndex = (waveformMenuIndex - 1) % waveformMenuLength;
+      updateMenu(waveformMenuPageNumber, waveformMenuIndex, waveformMenuLength, waveformMenuItems);
       break;
 
     case OSC_B:
@@ -119,8 +141,7 @@ void select() {
       if (mainMenuIndex == 0) {
         // Osc A
         display.setCursor(0,0);
-        display.setTextColor(SSD1306_WHITE); // Reset text color so that when selecting options of multiples of 3, doesn't keep them highlighted
-        updateMenu(oscAPageNumber, oscAMenuIndex, oscAMenuLength, oscAItems);
+        updateMenu(oscAMenuPageNumber, oscAMenuIndex, oscAMenuLength, oscAMenuItems);
         currentMenu = OSC_A;
 
       }
@@ -128,7 +149,11 @@ void select() {
       break;
 
     case OSC_A:
-
+      if (oscAMenuIndex == 0) {
+        display.setCursor(0,0);
+        currentMenu = WAVEFORM_A;
+        updateMenu(waveformMenuPageNumber, waveformMenuIndex, waveformMenuLength, waveformMenuItems);
+      }
       break;
 
     case OSC_B:
@@ -147,41 +172,78 @@ void select() {
 
       break;
   }
+}
 
+void goBack() {
+  switch (currentMenu) {
+    case MAIN:
+      break;
 
+    case OSC_A:
+      // display.setCursor(0,0);
+      currentMenu = MAIN;
+      mainMenuIndex = 0;
+      mainMenuPageNumber = 0;
+      updateMenu(mainMenuPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
+      break;
+    
+    case WAVEFORM_A:
+      currentMenu = OSC_A;
+      oscAMenuIndex = 0;
+      oscAMenuPageNumber = 0;
+      updateMenu(oscAMenuPageNumber, oscAMenuIndex, oscAMenuLength, oscAMenuItems);
+      break;
+
+    case OSC_B:
+
+      break;
+
+    case FILTER:
+
+      break;
+
+    case AMP_ENV:
+
+      break;
+
+    case FILTER_ENV:
+
+      break;
+  }
 }
 
 void loop() {
   long newEncoderPosition = myEncoder.read();
   long positionChange = newEncoderPosition - lastEncoderPosition;
+  encoderSwitch.update();
 
-  // code needs to be changed such that depending on if you are in a menu or in a parameter it properly updates that.
+  returnButton.update();
+
   if (positionChange >= 4) {
     lastEncoderPosition = newEncoderPosition;
-    // implement "forward" function
     forward();
   } else if (positionChange <= -4) {
     lastEncoderPosition = newEncoderPosition;
-    // Implement "backward" function
     backward();
   }
 
-  if (digitalRead(encoderSwitch) == LOW) {
-    
-    
-    // Implement "select" function
+  if (encoderSwitch.fallingEdge()) {
     select();
-    while(digitalRead(encoderSwitch) == LOW);
   }
 
   // Add back button functionality
+  if(returnButton.fallingEdge()) {
+    Serial.println("button pressed");
+    goBack();
+  }
 
 }
 
-// refactor this to work with more menus, instead of hardcoding it to work with the main menu, get it to work with submenus based on input parameters
-void updateMenu(int pageNumber, int menuIndex, int menuLength, const char* menuItems[]) {
+void updateMenu(int pageNumber, int& menuIndex, int menuLength, const char* menuItems[]) {
   display.clearDisplay();
-  
+  display.setTextColor(SSD1306_WHITE); // Reset text color so that when selecting options of multiples of 3, doesn't keep them highlighted
+
+  if (menuIndex < 0) menuIndex = menuLength - 1;
 
   pageNumber = menuIndex/3;
   int totalPages = (menuLength + itemsPerPage - 1) / itemsPerPage;
