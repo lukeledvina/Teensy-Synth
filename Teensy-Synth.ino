@@ -10,6 +10,26 @@
 #define OLED_RESET -1
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+
+
+#include <Audio.h>
+#include <SPI.h>
+#include <SD.h>
+#include <SerialFlash.h>
+
+// GUItool: begin automatically generated code
+AudioSynthWaveform       waveformA;      //xy=122.23333740234375,153.23333740234375
+AudioMixer4              mixer1;         //xy=383.23333740234375,213.23333740234375
+AudioMixer4              mixer2;         //xy=384.23333740234375,382.23333740234375
+AudioOutputI2S           i2s1;           //xy=620.2333374023438,320.23333740234375
+AudioConnection          patchCord1(waveformA, 0, mixer1, 0);
+AudioConnection          patchCord2(waveformA, 0, mixer2, 0);
+AudioConnection          patchCord3(mixer1, 0, i2s1, 0);
+AudioConnection          patchCord4(mixer2, 0, i2s1, 1);
+AudioControlSGTL5000     sgtl5000_1;     //xy=447.23333740234375,815.2333374023438
+// GUItool: end automatically generated code
+
+
 // When ready to do each additional menu state, uncomment one at a time and do each individually, test and then move on
 enum menuState {
   MAIN,
@@ -43,20 +63,30 @@ const int waveformMenuLength = sizeof(waveformMenuItems) / 4;
 int waveformMenuPageNumber = 0;
 
 int oscAPitchOffset = 0;
-float oscAPulseWidth = 1.0f;
+float oscAPulseWidth = 0.5f;
 bool oscAOn = true;
 
 Encoder myEncoder(2, 3);
 const int encoderSwitchPin = 20;
-Bounce encoderSwitch = Bounce(20,10);
+Bounce encoderSwitch = Bounce(20,20);
 long lastEncoderPosition = 0;
 
-Bounce returnButton = Bounce(4, 10);
+Bounce returnButton = Bounce(4, 20);
 const int returnButtonPin = 4;
 
+float volume = 0.5f;
+
 void setup() {
+  Serial.begin(9600);
   pinMode(encoderSwitchPin, INPUT_PULLUP);
   pinMode(returnButtonPin, INPUT_PULLUP);
+
+  AudioMemory(20);
+  sgtl5000_1.enable();
+  sgtl5000_1.volume(volume);
+
+  mixer1.gain(0, 0.75);
+  mixer2.gain(0, 0.75);
 
     if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     // SSD1306 allocation failed
@@ -66,6 +96,11 @@ void setup() {
   display.clearDisplay();
   display.setTextSize(2);
   updateMenu(mainMenuPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
+
+  waveformA.begin(WAVEFORM_PULSE);
+  waveformA.frequency(440);
+  waveformA.amplitude(0.9);
+  waveformA.pulseWidth(oscAPulseWidth);
 }
 
 // needs to be aware of proper menu and update everything accordingly
@@ -98,7 +133,15 @@ void forward() {
       break;
 
     case PULSE_WIDTH_A:
-
+      oscAPulseWidth = min(oscAPulseWidth + 0.02f, 1.00f);
+      waveformA.pulseWidth(oscAPulseWidth);
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.setTextColor(SSD1306_WHITE);
+      display.println("Pulse Wdth");
+      display.print(oscAPulseWidth);
+      display.print(" duty");
+      display.display();
       break;
 
     case OSC_A_ON_OFF:
@@ -153,7 +196,15 @@ void backward() {
       break;
 
     case PULSE_WIDTH_A:
-
+      oscAPulseWidth = max(oscAPulseWidth - 0.02f, 0.00f);
+      waveformA.pulseWidth(oscAPulseWidth);
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.setTextColor(SSD1306_WHITE);
+      display.println("Pulse Wdth");
+      display.print(oscAPulseWidth);
+      display.print(" duty");
+      display.display();
       break;
 
     case OSC_A_ON_OFF:
@@ -204,9 +255,19 @@ void select() {
         display.clearDisplay();
         display.setCursor(0, 0);
         display.setTextColor(SSD1306_WHITE);
-        display.println("Pitch shft");
+        display.println("Pitch Shft");
         display.print(oscAPitchOffset);
         display.print(" st");
+        display.display();
+      } else if (oscAMenuIndex == 2) {
+        currentMenu = PULSE_WIDTH_A;
+        waveformA.pulseWidth(oscAPulseWidth);
+        display.clearDisplay();
+        display.setCursor(0, 0);
+        display.setTextColor(SSD1306_WHITE);
+        display.println("Pulse Wdth");
+        display.print(oscAPulseWidth);
+        display.print(" duty");
         display.display();
       }
       break;
@@ -218,14 +279,20 @@ void select() {
       display.setTextColor(SSD1306_WHITE);
       display.println("Selected:");
       if (waveformMenuIndex == 0){
+        waveformA.begin(WAVEFORM_SINE);
         display.println("Sine");
       } else if (waveformMenuIndex == 1) {
+        waveformA.begin(WAVEFORM_SAWTOOTH);
         display.println("Sawtooth");
       } else if (waveformMenuIndex == 2) {
+        waveformA.begin(WAVEFORM_SQUARE);
         display.println("Square");
       } else if (waveformMenuIndex == 3) {
+        waveformA.begin(WAVEFORM_TRIANGLE);
         display.println("Triangle");
       } else if (waveformMenuIndex == 4) {
+        waveformA.begin(WAVEFORM_PULSE);
+        waveformA.pulseWidth(oscAPulseWidth);
         display.println("Pulse");
       }
       display.display();
@@ -335,17 +402,13 @@ void loop() {
     lastEncoderPosition = newEncoderPosition;
     backward();
   }
-
   if (encoderSwitch.fallingEdge()) {
     select();
   }
-
   // Add back button functionality
   if(returnButton.fallingEdge()) {
-    Serial.println("button pressed");
     goBack();
   }
-
 }
 
 void updateMenu(int pageNumber, int& menuIndex, int menuLength, const char* menuItems[]) {
