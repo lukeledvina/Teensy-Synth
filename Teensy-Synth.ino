@@ -3,6 +3,10 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <Audio.h>
+#include <SPI.h>
+#include <SD.h>
+#include <SerialFlash.h>
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -12,22 +16,16 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 
 
-#include <Audio.h>
-#include <SPI.h>
-#include <SD.h>
-#include <SerialFlash.h>
+AudioSynthWaveform waveformA;
+AudioMixer4 mixer1, mixer2;
+AudioOutputI2S i2s2;
+AudioControlSGTL5000 sgtl5000_1;
 
-// GUItool: begin automatically generated code
-AudioSynthWaveform       waveformA;      //xy=122.23333740234375,153.23333740234375
-AudioMixer4              mixer1;         //xy=383.23333740234375,213.23333740234375
-AudioMixer4              mixer2;         //xy=384.23333740234375,382.23333740234375
-AudioOutputI2S           i2s1;           //xy=620.2333374023438,320.23333740234375
-AudioConnection          patchCord1(waveformA, 0, mixer1, 0);
-AudioConnection          patchCord2(waveformA, 0, mixer2, 0);
-AudioConnection          patchCord3(mixer1, 0, i2s1, 0);
-AudioConnection          patchCord4(mixer2, 0, i2s1, 1);
-AudioControlSGTL5000     sgtl5000_1;     //xy=447.23333740234375,815.2333374023438
-// GUItool: end automatically generated code
+AudioConnection patchCord1(waveformA, 0, mixer1, 0);
+AudioConnection patchCord2(waveformA, 0, mixer2, 0);
+AudioConnection patchCord3(mixer1, 0, i2s2, 0);
+AudioConnection patchCord4(mixer2, 0, i2s2, 1);
+
 
 
 // When ready to do each additional menu state, uncomment one at a time and do each individually, test and then move on
@@ -67,7 +65,7 @@ float oscAPulseWidth = 0.5f;
 bool oscAOn = true;
 
 Encoder myEncoder(2, 3);
-const int encoderSwitchPin = 20;
+const int encoderSwitchPin = 17;
 Bounce encoderSwitch = Bounce(20,20);
 long lastEncoderPosition = 0;
 
@@ -77,16 +75,20 @@ const int returnButtonPin = 4;
 float volume = 0.5f;
 
 void setup() {
-  Serial.begin(9600);
+
+  AudioMemory(12);
+  sgtl5000_1.enable();
+  sgtl5000_1.volume(0.4);
+
+  mixer1.gain(0, 0.8);
+  mixer2.gain(0, 0.8);
+
+
+
+
+
   pinMode(encoderSwitchPin, INPUT_PULLUP);
   pinMode(returnButtonPin, INPUT_PULLUP);
-
-  AudioMemory(20);
-  sgtl5000_1.enable();
-  sgtl5000_1.volume(volume);
-
-  mixer1.gain(0, 0.75);
-  mixer2.gain(0, 0.75);
 
     if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     // SSD1306 allocation failed
@@ -97,10 +99,10 @@ void setup() {
   display.setTextSize(2);
   updateMenu(mainMenuPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
 
-  waveformA.begin(WAVEFORM_PULSE);
+  waveformA.begin(WAVEFORM_SQUARE);  // Or SINE, SAWTOOTH
   waveformA.frequency(440);
-  waveformA.amplitude(0.9);
-  waveformA.pulseWidth(oscAPulseWidth);
+  waveformA.amplitude(0.8);
+
 }
 
 // needs to be aware of proper menu and update everything accordingly
@@ -134,7 +136,7 @@ void forward() {
 
     case PULSE_WIDTH_A:
       oscAPulseWidth = min(oscAPulseWidth + 0.02f, 1.00f);
-      waveformA.pulseWidth(oscAPulseWidth);
+      //waveformA.pulseWidth(oscAPulseWidth);
       display.clearDisplay();
       display.setCursor(0, 0);
       display.setTextColor(SSD1306_WHITE);
@@ -197,7 +199,7 @@ void backward() {
 
     case PULSE_WIDTH_A:
       oscAPulseWidth = max(oscAPulseWidth - 0.02f, 0.00f);
-      waveformA.pulseWidth(oscAPulseWidth);
+      //waveformA.pulseWidth(oscAPulseWidth);
       display.clearDisplay();
       display.setCursor(0, 0);
       display.setTextColor(SSD1306_WHITE);
@@ -261,7 +263,7 @@ void select() {
         display.display();
       } else if (oscAMenuIndex == 2) {
         currentMenu = PULSE_WIDTH_A;
-        waveformA.pulseWidth(oscAPulseWidth);
+        //waveformA.pulseWidth(oscAPulseWidth);
         display.clearDisplay();
         display.setCursor(0, 0);
         display.setTextColor(SSD1306_WHITE);
@@ -279,20 +281,20 @@ void select() {
       display.setTextColor(SSD1306_WHITE);
       display.println("Selected:");
       if (waveformMenuIndex == 0){
-        waveformA.begin(WAVEFORM_SINE);
+        //waveformA.begin(WAVEFORM_SINE);
         display.println("Sine");
       } else if (waveformMenuIndex == 1) {
-        waveformA.begin(WAVEFORM_SAWTOOTH);
+        //waveformA.begin(WAVEFORM_SAWTOOTH);
         display.println("Sawtooth");
       } else if (waveformMenuIndex == 2) {
-        waveformA.begin(WAVEFORM_SQUARE);
+        //waveformA.begin(WAVEFORM_SQUARE);
         display.println("Square");
       } else if (waveformMenuIndex == 3) {
-        waveformA.begin(WAVEFORM_TRIANGLE);
+        //waveformA.begin(WAVEFORM_TRIANGLE);
         display.println("Triangle");
       } else if (waveformMenuIndex == 4) {
-        waveformA.begin(WAVEFORM_PULSE);
-        waveformA.pulseWidth(oscAPulseWidth);
+        //waveformA.begin(WAVEFORM_PULSE);
+        //waveformA.pulseWidth(oscAPulseWidth);
         display.println("Pulse");
       }
       display.display();
@@ -389,6 +391,8 @@ void goBack() {
 }
 
 void loop() {
+
+
   long newEncoderPosition = myEncoder.read();
   long positionChange = newEncoderPosition - lastEncoderPosition;
   encoderSwitch.update();
