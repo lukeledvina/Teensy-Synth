@@ -15,16 +15,17 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 
-
-AudioSynthWaveform waveformA;
-AudioMixer4 mixer1, mixer2;
-AudioOutputI2S i2s2;
-AudioControlSGTL5000 sgtl5000_1;
-
-AudioConnection patchCord1(waveformA, 0, mixer1, 0);
-AudioConnection patchCord2(waveformA, 0, mixer2, 0);
-AudioConnection patchCord3(mixer1, 0, i2s2, 0);
-AudioConnection patchCord4(mixer2, 0, i2s2, 1);
+// GUItool: begin automatically generated code
+AudioSynthWaveform       waveformA;      //xy=186.23333740234375,264
+AudioMixer4              mixerRight;         //xy=417.23333740234375,348.23333740234375
+AudioMixer4              mixerLeft;         //xy=422.23333740234375,228.23333740234375
+AudioOutputI2S           i2s1;           //xy=674.2333374023438,257.23333740234375
+AudioConnection          patchCord1(waveformA, 0, mixerLeft, 0);
+AudioConnection          patchCord2(waveformA, 0, mixerRight, 0);
+AudioConnection          patchCord3(mixerRight, 0, i2s1, 1);
+AudioConnection          patchCord4(mixerLeft, 0, i2s1, 0);
+AudioControlSGTL5000     sgtl5000_1;     //xy=420.23333740234375,466.23333740234375
+// GUItool: end automatically generated code
 
 
 
@@ -76,12 +77,12 @@ float volume = 0.5f;
 
 void setup() {
 
-  AudioMemory(12);
+  AudioMemory(20);
   sgtl5000_1.enable();
-  sgtl5000_1.volume(0.4);
+  sgtl5000_1.volume(volume);
 
-  mixer1.gain(0, 0.8);
-  mixer2.gain(0, 0.8);
+  mixerLeft.gain(0, 0.8);
+  mixerRight.gain(0, 0.8);
 
   pinMode(encoderSwitchPin, INPUT_PULLUP);
   pinMode(returnButtonPin, INPUT_PULLUP);
@@ -97,8 +98,10 @@ void setup() {
 
   waveformA.begin(WAVEFORM_SQUARE);  // Or SINE, SAWTOOTH
   waveformA.frequency(440);
-  waveformA.amplitude(0.8);
+  waveformA.amplitude(1);
 
+  usbMIDI.setHandleNoteOn(onNoteOn);
+  usbMIDI.setHandleNoteOff(onNoteOff);
 }
 
 // needs to be aware of proper menu and update everything accordingly
@@ -387,7 +390,7 @@ void goBack() {
 }
 
 void loop() {
-
+  usbMIDI.read();
 
   long newEncoderPosition = myEncoder.read();
   long positionChange = newEncoderPosition - lastEncoderPosition;
@@ -435,5 +438,16 @@ void updateMenu(int pageNumber, int& menuIndex, int menuLength, const char* menu
   }
 
   display.display();
+}
+
+void onNoteOn(byte channel, byte note, byte velocity) {
+  float freqA = 440.0 * pow(2.0, (note + oscAPitchOffset - 69) / 12.0);
+  float adjustedVelocity = float(velocity)/127.0f;
+  waveformA.frequency(freqA);
+  waveformA.amplitude(adjustedVelocity);
+}
+
+void onNoteOff(byte channel, byte note, byte velocity) {
+  waveformA.amplitude(0);
 }
 
