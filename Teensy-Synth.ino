@@ -73,6 +73,11 @@ long lastEncoderPosition = 0;
 Bounce returnButton = Bounce(4, 20);
 const int returnButtonPin = 4;
 
+int oscAWaveform = WAVEFORM_SINE;
+
+
+float oscAGainLeft = 0.5f;
+float oscAGainRight = 0.5f;
 float volume = 0.5f;
 
 void setup() {
@@ -81,8 +86,8 @@ void setup() {
   sgtl5000_1.enable();
   sgtl5000_1.volume(volume);
 
-  mixerLeft.gain(0, 0.8);
-  mixerRight.gain(0, 0.8);
+  mixerLeft.gain(0, oscAGainLeft);
+  mixerRight.gain(0, oscAGainRight);
 
   pinMode(encoderSwitchPin, INPUT_PULLUP);
   pinMode(returnButtonPin, INPUT_PULLUP);
@@ -96,9 +101,7 @@ void setup() {
   display.setTextSize(2);
   updateMenu(mainMenuPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
 
-  waveformA.begin(WAVEFORM_SQUARE);  // Or SINE, SAWTOOTH
-  waveformA.frequency(440);
-  waveformA.amplitude(1);
+  waveformA.begin(WAVEFORM_SINE);
 
   usbMIDI.setHandleNoteOn(onNoteOn);
   usbMIDI.setHandleNoteOff(onNoteOff);
@@ -262,13 +265,29 @@ void select() {
         display.display();
       } else if (oscAMenuIndex == 2) {
         currentMenu = PULSE_WIDTH_A;
-        //waveformA.pulseWidth(oscAPulseWidth);
         display.clearDisplay();
         display.setCursor(0, 0);
         display.setTextColor(SSD1306_WHITE);
         display.println("Pulse Wdth");
         display.print(oscAPulseWidth);
         display.print(" duty");
+        display.display();
+        waveformA.pulseWidth(oscAPulseWidth);
+      } else if (oscAMenuIndex == 3) {
+        display.clearDisplay();
+        display.setCursor(0, 0);
+        display.setTextColor(SSD1306_WHITE);
+        oscAOn = !oscAOn;
+        if(oscAOn) {
+          display.println("Osc A On");
+          mixerLeft.gain(0, oscAGainLeft);
+          mixerRight.gain(0, oscAGainRight);
+
+        } else {
+          display.println("Osc A Off");
+          mixerLeft.gain(0, 0);
+          mixerRight.gain(0, 0);
+        }
         display.display();
       }
       break;
@@ -280,22 +299,22 @@ void select() {
       display.setTextColor(SSD1306_WHITE);
       display.println("Selected:");
       if (waveformMenuIndex == 0){
-        //waveformA.begin(WAVEFORM_SINE);
+        oscAWaveform = WAVEFORM_SINE;
         display.println("Sine");
       } else if (waveformMenuIndex == 1) {
-        //waveformA.begin(WAVEFORM_SAWTOOTH);
+        oscAWaveform = WAVEFORM_SAWTOOTH;
         display.println("Sawtooth");
       } else if (waveformMenuIndex == 2) {
-        //waveformA.begin(WAVEFORM_SQUARE);
+        oscAWaveform = WAVEFORM_SQUARE;
         display.println("Square");
       } else if (waveformMenuIndex == 3) {
-        //waveformA.begin(WAVEFORM_TRIANGLE);
+        oscAWaveform = WAVEFORM_TRIANGLE;
         display.println("Triangle");
       } else if (waveformMenuIndex == 4) {
-        //waveformA.begin(WAVEFORM_PULSE);
-        //waveformA.pulseWidth(oscAPulseWidth);
+        oscAWaveform = WAVEFORM_PULSE;
         display.println("Pulse");
       }
+      waveformA.begin(oscAWaveform);
       display.display();
       break;
 
