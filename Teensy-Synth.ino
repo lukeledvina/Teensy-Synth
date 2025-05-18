@@ -65,8 +65,8 @@ float oscAPulseWidth = 0.5f;
 bool oscAOn = true;
 
 Encoder myEncoder(2, 3);
-const int encoderSwitchPin = 17;
-Bounce encoderSwitch = Bounce(20,20);
+const int encoderSwitchPin = 15;
+Bounce encoderSwitch = Bounce(encoderSwitchPin,20);
 long lastEncoderPosition = 0;
 
 Bounce returnButton = Bounce(4, 20);
@@ -82,10 +82,6 @@ void setup() {
 
   mixer1.gain(0, 0.8);
   mixer2.gain(0, 0.8);
-
-
-
-
 
   pinMode(encoderSwitchPin, INPUT_PULLUP);
   pinMode(returnButtonPin, INPUT_PULLUP);
