@@ -111,7 +111,6 @@ const int returnButtonPin = 4;
 
 int oscAWaveform = WAVEFORM_SINE;
 
-
 float oscAGainLeft = 0.5f;
 float oscAGainRight = 0.5f;
 float volume = 0.5f;
@@ -127,6 +126,24 @@ float minResonance = 0.7f;
 float maxResonance = 5.0f;
 
 bool filterOn = false;
+
+// Defaults
+float ampAttack = 5.0f; //ms
+float ampDecay = 200.0f; //ms
+float ampSustain = 1.0f; //percentage
+float ampRelease = 650.0f; //ms
+float ampAmount = 1.0f; //percentage?
+
+
+const float mixAlpha = 0.8f;
+int ampAttackEnvelopeStep = 0;
+const int envelopeStepsMax = 100;
+
+const float minEnvelopeAmount = 5.0f;
+const float maxEnvelopeAmount = 15000.0f;
+float envelopeCurveAmount = 2.0f;
+
+int ampDecayEnvelopeStep = 0;
 
 enum filterType {
   LOW_PASS,
@@ -157,6 +174,11 @@ void setup() {
   // Do not plan on using these parameters for my envelopes
   ampEnvelope.delay(0);
   ampEnvelope.hold(0);
+
+  ampEnvelope.attack(ampAttack);
+  ampEnvelope.decay(ampDecay);
+  ampEnvelope.sustain(ampSustain);
+  ampEnvelope.release(ampRelease);
 
   usbMIDI.setHandleNoteOn(onNoteOn);
   usbMIDI.setHandleNoteOff(onNoteOff);
@@ -239,11 +261,13 @@ void forward() {
       break;
     
     case AMP_ATTACK:
-
+      ampAttackEnvelopeStep = min(ampAttackEnvelopeStep + 1, envelopeStepsMax);
+      applyAmpAttack();
       break;
 
     case AMP_DECAY:
-
+      ampDecayEnvelopeStep = min(ampDecayEnvelopeStep + 1, envelopeStepsMax);
+      applyAmpDecay();
       break;
 
     case AMP_SUSTAIN:
@@ -330,11 +354,13 @@ void backward() {
       break;
     
     case AMP_ATTACK:
-
+      ampAttackEnvelopeStep = max(ampAttackEnvelopeStep - 1, 0.00f);
+      applyAmpAttack();
       break;
 
     case AMP_DECAY:
-
+      ampDecayEnvelopeStep = max(ampDecayEnvelopeStep - 1, 0.00f);
+      applyAmpDecay();
       break;
 
     case AMP_SUSTAIN:
@@ -556,7 +582,18 @@ void select() {
       break;
 
     case AMP_ENV:
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.setTextColor(SSD1306_WHITE);
+      if (ampEnvelopeMenuIndex == 0) {
+        currentMenu = AMP_ATTACK;
+        applyAmpAttack();
+      } else if (ampEnvelopeMenuIndex == 1) {
+        currentMenu = AMP_DECAY;
+        applyAmpDecay();
+      }
 
+      display.display();
       break;
     
     case AMP_ATTACK:
@@ -765,8 +802,46 @@ void updateMenu(int pageNumber, int& menuIndex, int menuLength, const char* menu
   display.display();
 }
 
+void applyAmpAttack() {
+  float norm = float(ampAttackEnvelopeStep) / envelopeStepsMax;
+  float warped = powf(norm, envelopeCurveAmount);
+  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
+  float linTime = norm * maxEnvelopeAmount;
+
+  ampAttack = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
+
+  ampEnvelope.attack(ampAttack);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Amp Attack:");
+  display.print(int(ampAttack));
+  display.println(" ms");
+  display.display();
+}
+
+void applyAmpDecay() {
+  float norm = float(ampDecayEnvelopeStep) / envelopeStepsMax;
+  float warped = powf(norm, envelopeCurveAmount);
+  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
+  float linTime = norm * maxEnvelopeAmount;
+
+  ampDecay = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
+
+  ampEnvelope.decay(ampDecay);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Amp Decay:");
+  display.print(int(ampDecay));
+  display.println(" ms");
+  display.display();
+}
 
 void applyPitchShiftA() {
+  // is handled in midi noteOn
   display.clearDisplay();
   display.setCursor(0, 0);
   display.setTextColor(SSD1306_WHITE);
@@ -792,17 +867,19 @@ void onNoteOn(byte channel, byte note, byte velocity) {
   float adjustedVelocity = float(velocity)/127.0f;
   waveformA.frequency(freqA);
   waveformA.amplitude(adjustedVelocity);
+  
+  ampEnvelope.noteOn();
 }
 
-// This will need to be changed with envelope? maybe
+// This will need to be changed with envelope
 void onNoteOff(byte channel, byte note, byte velocity) {
-  waveformA.amplitude(0);
+  ampEnvelope.noteOff();
 }
 
 
 void applyFilterCutoff() {
-  float filterCurve = pow(filterControl, filterCutoffCurve);
-  filterCutoffFreq = minCutoffFreq * pow(maxCutoffFreq / minCutoffFreq, filterCurve);
+  float filterCurve = powf(filterControl, filterCutoffCurve);
+  filterCutoffFreq = minCutoffFreq * powf(maxCutoffFreq / minCutoffFreq, filterCurve);
 
   filter1.frequency(filterCutoffFreq);
 
