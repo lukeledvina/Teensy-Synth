@@ -17,21 +17,25 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // GUItool: begin automatically generated code
 AudioSynthWaveform       waveformA;      //xy=69.23333740234375,220
-AudioFilterStateVariable filter1;        //xy=220.23333740234375,145.23333740234375
-AudioMixer4              filterTypeMixer;         //xy=341.23333740234375,262.23333740234375
-AudioMixer4              mixerLeft;         //xy=562.2333374023438,164.23333740234375
-AudioMixer4              mixerRight;         //xy=590.2333374023438,348.23333740234375
-AudioOutputI2S           i2s1;           //xy=718.2333374023438,254.23333740234375
+AudioFilterStateVariable filter1;        //xy=333.9833679199219,135.2333221435547
+AudioMixer4              filterTypeMixer;         //xy=500.4833679199219,258.98333740234375
+AudioEffectEnvelope      ampEnvelope;      //xy=705.4833984375,258.73333740234375
+AudioAmplifier           amp1;           //xy=871.7333374023438,258.73333740234375
+AudioMixer4              mixerLeft;         //xy=982.4832763671875,119.23332977294922
+AudioMixer4              mixerRight;         //xy=998.4832763671875,396.23333740234375
+AudioOutputI2S           i2s1;           //xy=1041.4832763671875,262.23333740234375
 AudioConnection          patchCord1(waveformA, 0, filter1, 0);
 AudioConnection          patchCord2(waveformA, 0, filterTypeMixer, 3);
 AudioConnection          patchCord3(filter1, 0, filterTypeMixer, 0);
 AudioConnection          patchCord4(filter1, 1, filterTypeMixer, 1);
 AudioConnection          patchCord5(filter1, 2, filterTypeMixer, 2);
-AudioConnection          patchCord6(filterTypeMixer, 0, mixerLeft, 0);
-AudioConnection          patchCord7(filterTypeMixer, 0, mixerRight, 0);
-AudioConnection          patchCord8(mixerLeft, 0, i2s1, 0);
-AudioConnection          patchCord9(mixerRight, 0, i2s1, 1);
-AudioControlSGTL5000     sgtl5000_1;     //xy=377.23333740234375,658.2333374023438
+AudioConnection          patchCord6(filterTypeMixer, ampEnvelope);
+AudioConnection          patchCord7(ampEnvelope, amp1);
+AudioConnection          patchCord8(amp1, 0, mixerLeft, 0);
+AudioConnection          patchCord9(amp1, 0, mixerRight, 0);
+AudioConnection          patchCord10(mixerLeft, 0, i2s1, 0);
+AudioConnection          patchCord11(mixerRight, 0, i2s1, 1);
+AudioControlSGTL5000     sgtl5000_1;     //xy=482.23333740234375,704.2333374023438
 // GUItool: end automatically generated code
 
 
@@ -47,7 +51,12 @@ enum menuState {
   FILTER_CUTOFF,
   FILTER_RESONANCE,
   FILTER_ON_OFF,
-  // AMP_ENV,
+  AMP_ENV,
+  AMP_ATTACK,
+  AMP_DECAY,
+  AMP_SUSTAIN,
+  AMP_RELEASE,
+  AMP_AMOUNT,
   // FILTER_ENV,
   WAVEFORM_A,
   PITCH_A,
@@ -82,6 +91,11 @@ const char* filterTypeMenuItems[] = {"Low Pass", "Band Pass", "High Pass"};
 int filterTypeMenuIndex = 0;
 const int filterTypeMenuLength = sizeof(filterTypeMenuItems) / 4;
 int filterTypeMenuPageNumber = 0;
+
+const char* ampEnvelopeMenuItems[] = {"Attack", "Decay", "Sustain", "Release", "Amount"};
+int ampEnvelopeMenuIndex = 0;
+const int ampEnvelopeMenuLength = sizeof(ampEnvelopeMenuItems) / 4;
+int ampEnvelopeMenuPageNumber = 0;
 
 int oscAPitchOffset = 0;
 float oscAPulseWidth = 0.5f;
@@ -129,6 +143,9 @@ void setup() {
   sgtl5000_1.enable();
   sgtl5000_1.volume(volume);
 
+  waveformA.begin(WAVEFORM_PULSE);
+  waveformA.pulseWidth(0.5f);
+
   mixerLeft.gain(0, oscAGainLeft);
   mixerRight.gain(0, oscAGainRight);
 
@@ -137,8 +154,9 @@ void setup() {
   filterTypeMixer.gain(2, 0);
   filterTypeMixer.gain(3, 1);
 
-  waveformA.begin(WAVEFORM_PULSE);
-  waveformA.pulseWidth(0.5f);
+  // Do not plan on using these parameters for my envelopes
+  ampEnvelope.delay(0);
+  ampEnvelope.hold(0);
 
   usbMIDI.setHandleNoteOn(onNoteOn);
   usbMIDI.setHandleNoteOff(onNoteOff);
@@ -215,9 +233,30 @@ void forward() {
       // do nothing
       break;
 
-    // case AMP_ENV:
+    case AMP_ENV:
+      ampEnvelopeMenuIndex = (ampEnvelopeMenuIndex + 1) % ampEnvelopeMenuLength;
+      updateMenu(ampEnvelopeMenuPageNumber, ampEnvelopeMenuIndex, ampEnvelopeMenuLength, ampEnvelopeMenuItems);
+      break;
+    
+    case AMP_ATTACK:
 
-    //   break;
+      break;
+
+    case AMP_DECAY:
+
+      break;
+
+    case AMP_SUSTAIN:
+
+      break;
+
+    case AMP_RELEASE:
+
+      break;
+
+    case AMP_AMOUNT:
+
+      break;
 
     // case FILTER_ENV:
 
@@ -285,9 +324,30 @@ void backward() {
       // do nothing
       break;
 
-    // case AMP_ENV:
+    case AMP_ENV:
+      ampEnvelopeMenuIndex = (ampEnvelopeMenuIndex - 1) % ampEnvelopeMenuLength;
+      updateMenu(ampEnvelopeMenuPageNumber, ampEnvelopeMenuIndex, ampEnvelopeMenuLength, ampEnvelopeMenuItems);
+      break;
+    
+    case AMP_ATTACK:
 
-    //   break;
+      break;
+
+    case AMP_DECAY:
+
+      break;
+
+    case AMP_SUSTAIN:
+
+      break;
+
+    case AMP_RELEASE:
+
+      break;
+
+    case AMP_AMOUNT:
+
+      break;
 
     // case FILTER_ENV:
 
@@ -314,6 +374,12 @@ void select() {
         filterMenuIndex = 0;
         display.setCursor(0,0);
         updateMenu(filterMenuPageNumber, filterMenuIndex, filterMenuLength, filterMenuItems);
+      } else if (mainMenuIndex == 3) {
+        currentMenu = AMP_ENV;
+        ampEnvelopeMenuPageNumber = 0;
+        ampEnvelopeMenuIndex = 0;
+        display.setCursor(0,0);
+        updateMenu(ampEnvelopeMenuPageNumber, ampEnvelopeMenuIndex, ampEnvelopeMenuLength, ampEnvelopeMenuItems);
       }
 
       break;
@@ -489,9 +555,29 @@ void select() {
       // do nothing
       break;
 
-    // case AMP_ENV:
+    case AMP_ENV:
 
-    //   break;
+      break;
+    
+    case AMP_ATTACK:
+
+      break;
+
+    case AMP_DECAY:
+
+      break;
+
+    case AMP_SUSTAIN:
+
+      break;
+
+    case AMP_RELEASE:
+
+      break;
+
+    case AMP_AMOUNT:
+
+      break;
 
     // case FILTER_ENV:
 
@@ -580,9 +666,47 @@ void goBack() {
       updateMenu(filterMenuPageNumber, filterMenuIndex, filterMenuLength, filterMenuItems);
       break;
 
-    // case AMP_ENV:
+    case AMP_ENV:
+      currentMenu = MAIN;
+      mainMenuIndex = 0;
+      mainMenuPageNumber = 0;
+      updateMenu(mainMenuPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
+      break;
+    
+    case AMP_ATTACK:
+      currentMenu = AMP_ENV;
+      ampEnvelopeMenuIndex = 0;
+      ampEnvelopeMenuPageNumber = 0;
+      updateMenu(ampEnvelopeMenuPageNumber, ampEnvelopeMenuIndex, ampEnvelopeMenuLength, ampEnvelopeMenuItems);
+      break;
 
-    //   break;
+    case AMP_DECAY:
+      currentMenu = AMP_ENV;
+      ampEnvelopeMenuIndex = 0;
+      ampEnvelopeMenuPageNumber = 0;
+      updateMenu(ampEnvelopeMenuPageNumber, ampEnvelopeMenuIndex, ampEnvelopeMenuLength, ampEnvelopeMenuItems);
+      break;
+
+    case AMP_SUSTAIN:
+      currentMenu = AMP_ENV;
+      ampEnvelopeMenuIndex = 0;
+      ampEnvelopeMenuPageNumber = 0;
+      updateMenu(ampEnvelopeMenuPageNumber, ampEnvelopeMenuIndex, ampEnvelopeMenuLength, ampEnvelopeMenuItems);
+      break;
+
+    case AMP_RELEASE:
+      currentMenu = AMP_ENV;
+      ampEnvelopeMenuIndex = 0;
+      ampEnvelopeMenuPageNumber = 0;
+      updateMenu(ampEnvelopeMenuPageNumber, ampEnvelopeMenuIndex, ampEnvelopeMenuLength, ampEnvelopeMenuItems);
+      break;
+
+    case AMP_AMOUNT:
+      currentMenu = AMP_ENV;
+      ampEnvelopeMenuIndex = 0;
+      ampEnvelopeMenuPageNumber = 0;
+      updateMenu(ampEnvelopeMenuPageNumber, ampEnvelopeMenuIndex, ampEnvelopeMenuLength, ampEnvelopeMenuItems);
+      break;
 
     // case FILTER_ENV:
 
