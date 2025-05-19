@@ -271,7 +271,8 @@ void forward() {
       break;
 
     case AMP_SUSTAIN:
-
+      ampSustain = min(ampSustain + 0.02f, 1.00f);
+      applyAmpSustain();
       break;
 
     case AMP_RELEASE:
@@ -364,7 +365,8 @@ void backward() {
       break;
 
     case AMP_SUSTAIN:
-
+      ampSustain = max(ampSustain - 0.02f, 0.00f);
+      applyAmpSustain();
       break;
 
     case AMP_RELEASE:
@@ -591,6 +593,9 @@ void select() {
       } else if (ampEnvelopeMenuIndex == 1) {
         currentMenu = AMP_DECAY;
         applyAmpDecay();
+      } else if (ampEnvelopeMenuIndex == 2) {
+        currentMenu = AMP_SUSTAIN;
+        applyAmpSustain();
       }
 
       display.display();
@@ -837,6 +842,18 @@ void applyAmpDecay() {
   display.println("Amp Decay:");
   display.print(int(ampDecay));
   display.println(" ms");
+  display.display();
+}
+
+void applyAmpSustain() {
+  ampEnvelope.sustain(ampSustain);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Amp Sustain:");
+  display.print(ampSustain * 100);
+  display.println(" %");
   display.display();
 }
 
