@@ -283,7 +283,8 @@ void forward() {
       break;
 
     case AMP_AMOUNT:
-
+      ampAmount = min(ampAmount+ 0.02f, 1.00f);
+      applyAmpAmount();
       break;
 
     // case FILTER_ENV:
@@ -378,7 +379,8 @@ void backward() {
       break;
 
     case AMP_AMOUNT:
-
+      ampAmount = max(ampAmount - 0.02f, 0.00f);
+      applyAmpAmount();
       break;
 
     // case FILTER_ENV:
@@ -603,6 +605,9 @@ void select() {
       } else if (ampEnvelopeMenuIndex == 3) {
         currentMenu = AMP_RELEASE;
         applyAmpRelease();
+      } else if (ampEnvelopeMenuIndex == 4) {
+        currentMenu = AMP_AMOUNT;
+        applyAmpAmount();
       }
 
       display.display();
@@ -880,6 +885,18 @@ void applyAmpRelease() {
   display.println("Amp Release:");
   display.print(int(ampRelease));
   display.println(" ms");
+  display.display();  
+}
+
+void applyAmpAmount() {
+
+  amp1.gain(ampAmount);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Amp Amnt:");
+  display.println(ampAmount);
   display.display();  
 }
 
