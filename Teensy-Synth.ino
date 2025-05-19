@@ -129,9 +129,9 @@ bool filterOn = false;
 
 // Defaults
 float ampAttack = 5.0f; //ms
-float ampDecay = 200.0f; //ms
+float ampDecay = 5.0f; //ms
 float ampSustain = 1.0f; //percentage
-float ampRelease = 650.0f; //ms
+float ampRelease = 5.0f; //ms
 float ampAmount = 1.0f; //percentage?
 
 
@@ -144,6 +144,8 @@ const float maxEnvelopeAmount = 15000.0f;
 float envelopeCurveAmount = 2.0f;
 
 int ampDecayEnvelopeStep = 0;
+
+int ampReleaseEnvelopeStep = 0;
 
 enum filterType {
   LOW_PASS,
@@ -276,7 +278,8 @@ void forward() {
       break;
 
     case AMP_RELEASE:
-
+      ampReleaseEnvelopeStep = min(ampReleaseEnvelopeStep + 1, envelopeStepsMax);
+      applyAmpRelease();
       break;
 
     case AMP_AMOUNT:
@@ -370,7 +373,8 @@ void backward() {
       break;
 
     case AMP_RELEASE:
-
+      ampReleaseEnvelopeStep = max(ampReleaseEnvelopeStep - 1, 0.00f);
+      applyAmpRelease();
       break;
 
     case AMP_AMOUNT:
@@ -596,6 +600,9 @@ void select() {
       } else if (ampEnvelopeMenuIndex == 2) {
         currentMenu = AMP_SUSTAIN;
         applyAmpSustain();
+      } else if (ampEnvelopeMenuIndex == 3) {
+        currentMenu = AMP_RELEASE;
+        applyAmpRelease();
       }
 
       display.display();
@@ -855,6 +862,25 @@ void applyAmpSustain() {
   display.print(ampSustain * 100);
   display.println(" %");
   display.display();
+}
+
+void applyAmpRelease() {
+  float norm = float(ampReleaseEnvelopeStep) / envelopeStepsMax;
+  float warped = powf(norm, envelopeCurveAmount);
+  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
+  float linTime = norm * maxEnvelopeAmount;
+
+  ampRelease = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
+
+  ampEnvelope.release(ampRelease);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Amp Release:");
+  display.print(int(ampRelease));
+  display.println(" ms");
+  display.display();  
 }
 
 void applyPitchShiftA() {
