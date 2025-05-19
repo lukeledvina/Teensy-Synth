@@ -106,7 +106,7 @@ int minCutoffFreq = 20;
 int maxCutoffFreq = 15000;
 int filterCutoffFreq = maxCutoffFreq;
 float filterControl = 1.0f;
-float filterCutoffCurve = 3.0f;
+float filterCutoffCurve = 2.0f;
 
 float filterResonance = 0.0f;
 float minResonance = 0.7f;
@@ -125,14 +125,24 @@ filterType currentFilterType = LOW_PASS;
 
 
 void setup() {
-
-  AudioMemory(20);
+  AudioMemory(32);
   sgtl5000_1.enable();
   sgtl5000_1.volume(volume);
 
   mixerLeft.gain(0, oscAGainLeft);
   mixerRight.gain(0, oscAGainRight);
 
+  filterTypeMixer.gain(0, 0);
+  filterTypeMixer.gain(1, 0);
+  filterTypeMixer.gain(2, 0);
+  filterTypeMixer.gain(3, 1);
+
+  waveformA.begin(WAVEFORM_PULSE);
+  waveformA.pulseWidth(0.5f);
+
+  usbMIDI.setHandleNoteOn(onNoteOn);
+  usbMIDI.setHandleNoteOff(onNoteOff);
+  
   pinMode(encoderSwitchPin, INPUT_PULLUP);
   pinMode(returnButtonPin, INPUT_PULLUP);
 
@@ -140,23 +150,12 @@ void setup() {
     // SSD1306 allocation failed
     for(;;);
   }
-
   display.clearDisplay();
   display.setTextSize(2);
   updateMenu(mainMenuPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
-
-  waveformA.begin(WAVEFORM_PULSE);
-
-  usbMIDI.setHandleNoteOn(onNoteOn);
-  usbMIDI.setHandleNoteOff(onNoteOff);
-
-  filterTypeMixer.gain(0, 0);
-  filterTypeMixer.gain(1, 0);
-  filterTypeMixer.gain(2, 0);
-  filterTypeMixer.gain(3, 1);
 }
 
-// needs to be aware of proper menu and update everything accordingly
+// Gets ran when encoder is rotated clockwise
 void forward() {
   switch (currentMenu) {
     case MAIN:
@@ -176,25 +175,12 @@ void forward() {
 
     case PITCH_A:
       oscAPitchOffset++;
-      display.clearDisplay();
-      display.setCursor(0, 0);
-      display.setTextColor(SSD1306_WHITE);
-      display.println("Pitch shft");
-      display.print(oscAPitchOffset);
-      display.print(" st");
-      display.display();
+      applyPitchShiftA();
       break;
 
     case PULSE_WIDTH_A:
       oscAPulseWidth = min(oscAPulseWidth + 0.02f, 1.00f);
-      waveformA.pulseWidth(oscAPulseWidth);
-      display.clearDisplay();
-      display.setCursor(0, 0);
-      display.setTextColor(SSD1306_WHITE);
-      display.println("Pulse Wdth");
-      display.print(oscAPulseWidth);
-      display.print(" duty");
-      display.display();
+      applyPulseWidthA();
       break;
 
     case OSC_A_ON_OFF:
@@ -239,7 +225,7 @@ void forward() {
   }
 }
 
-// same as forward
+// Gets ran when encoder is rotated counter clockwise
 void backward() {
   switch (currentMenu) {
     case MAIN:
@@ -259,25 +245,12 @@ void backward() {
 
     case PITCH_A:
       oscAPitchOffset--;
-      display.clearDisplay();
-      display.setCursor(0, 0);
-      display.setTextColor(SSD1306_WHITE);
-      display.println("Pitch shft");
-      display.print(oscAPitchOffset);
-      display.print(" st");
-      display.display();
+      applyPitchShiftA();
       break;
 
     case PULSE_WIDTH_A:
       oscAPulseWidth = max(oscAPulseWidth - 0.02f, 0.00f);
-      waveformA.pulseWidth(oscAPulseWidth);
-      display.clearDisplay();
-      display.setCursor(0, 0);
-      display.setTextColor(SSD1306_WHITE);
-      display.println("Pulse Wdth");
-      display.print(oscAPulseWidth);
-      display.print(" duty");
-      display.display();
+      applyPulseWidthA();
       break;
 
     case OSC_A_ON_OFF:
@@ -322,6 +295,7 @@ void backward() {
   }
 }
 
+// Gets ran when encoder is pressed down
 void select() {
   switch (currentMenu) {
     case MAIN:
@@ -352,34 +326,20 @@ void select() {
         updateMenu(waveformMenuPageNumber, waveformMenuIndex, waveformMenuLength, waveformMenuItems);
       } else if (oscAMenuIndex == 1) {
         currentMenu = PITCH_A;
-        // show the number representing pitch for osc A, turning the encoder will update it in semitones
-        display.clearDisplay();
-        display.setCursor(0, 0);
-        display.setTextColor(SSD1306_WHITE);
-        display.println("Pitch Shft");
-        display.print(oscAPitchOffset);
-        display.print(" st");
-        display.display();
+        applyPitchShiftA();
       } else if (oscAMenuIndex == 2) {
         currentMenu = PULSE_WIDTH_A;
-        display.clearDisplay();
-        display.setCursor(0, 0);
-        display.setTextColor(SSD1306_WHITE);
-        display.println("Pulse Wdth");
-        display.print(oscAPulseWidth);
-        display.print(" duty");
-        display.display();
+        applyPulseWidthA();
         waveformA.pulseWidth(oscAPulseWidth);
       } else if (oscAMenuIndex == 3) {
+        oscAOn = !oscAOn;
         display.clearDisplay();
         display.setCursor(0, 0);
         display.setTextColor(SSD1306_WHITE);
-        oscAOn = !oscAOn;
         if(oscAOn) {
           display.println("Osc A On");
           mixerLeft.gain(0, oscAGainLeft);
           mixerRight.gain(0, oscAGainRight);
-
         } else {
           display.println("Osc A Off");
           mixerLeft.gain(0, 0);
@@ -452,7 +412,6 @@ void select() {
         applyFilterResonance();
       } else if (filterMenuIndex == 3) {
         filterOn = !filterOn;
-        Serial.println(filterCutoffFreq);
         if (filterOn) {
           display.println("Filter On");
           filter1.frequency(filterCutoffFreq);
@@ -540,6 +499,7 @@ void select() {
   }
 }
 
+// Gets ran when pushbutton is pressed down
 void goBack() {
   switch (currentMenu) {
     case MAIN:
@@ -681,6 +641,28 @@ void updateMenu(int pageNumber, int& menuIndex, int menuLength, const char* menu
   display.display();
 }
 
+
+void applyPitchShiftA() {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Pitch shft");
+  display.print(oscAPitchOffset);
+  display.print(" st");
+  display.display();
+}
+
+void applyPulseWidthA() {
+  waveformA.pulseWidth(oscAPulseWidth);
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Pulse Wdth");
+  display.print(oscAPulseWidth);
+  display.print(" duty");
+  display.display();
+}
+
 void onNoteOn(byte channel, byte note, byte velocity) {
   float freqA = 440.0 * pow(2.0, (note + oscAPitchOffset - 69) / 12.0);
   float adjustedVelocity = float(velocity)/127.0f;
@@ -688,6 +670,7 @@ void onNoteOn(byte channel, byte note, byte velocity) {
   waveformA.amplitude(adjustedVelocity);
 }
 
+// This will need to be changed with envelope? maybe
 void onNoteOff(byte channel, byte note, byte velocity) {
   waveformA.amplitude(0);
 }
@@ -709,10 +692,10 @@ void applyFilterCutoff() {
 }
 
 void applyFilterResonance() {
-
   float adjustedResonance = minResonance + (maxResonance - minResonance) * filterResonance;
 
   filter1.resonance(adjustedResonance);
+
   display.clearDisplay();
   display.setCursor(0, 0);
   display.setTextColor(SSD1306_WHITE);
