@@ -42,6 +42,8 @@ AudioConnection          patchCord14(mixerRight, 0, i2s1, 1);
 AudioControlSGTL5000     sgtl5000_1;     //xy=482.23333740234375,704.2333374023438
 // GUItool: end automatically generated code
 
+
+
 // When ready to do each additional menu state, uncomment one at a time and do each individually, test and then move on
 enum menuState {
   MAIN,
@@ -149,7 +151,7 @@ float ampAmount = 1.0f; //percentage?
 const float mixAlpha = 0.8f;
 const int envelopeStepsMax = 100;
 const float minEnvelopeAmount = 5.0f;
-const float maxEnvelopeAmount = 15000.0f;
+const float maxEnvelopeAmount = 15000.0f; 
 float envelopeCurveAmount = 2.0f;
 
 int ampAttackEnvelopeStep = 0;
@@ -158,10 +160,12 @@ int ampReleaseEnvelopeStep = 0;
 
 
 float filterAttack = 5.0f; //ms
-float filterDecay = 5.0f; //ms
-float filterSustain = 1.0f; //percentage
-float filterRelease = 5.0f; //ms
+float filterDecay = 150.0f; //ms
+float filterSustain = 0.6f; //percentage
+float filterRelease = 500.0f; //ms
 float filterAmount = 1.0f; //percentage?
+float maxFilterAmount = 2.0f; // will change
+
 
 int filterAttackEnvelopeStep = 0;
 int filterDecayEnvelopeStep = 0;
@@ -211,7 +215,7 @@ void setup() {
   filterEnvelope.sustain(filterSustain);
   filterEnvelope.release(filterRelease); 
 
-  filterEnvelopeAmp.gain(1.0f);
+  filterEnvelopeAmp.gain(filterAmount);
 
   usbMIDI.setHandleNoteOn(onNoteOn);
   usbMIDI.setHandleNoteOff(onNoteOff);
@@ -344,7 +348,7 @@ void forward() {
       break;
 
     case FILTER_AMOUNT:
-      filterAmount = min(filterAmount+ 0.02f, 1.00f);
+      filterAmount = min(filterAmount + 0.05f, maxFilterAmount); // will be changed
       applyFilterAmount();
       break;
   }
@@ -466,7 +470,7 @@ void backward() {
       break;
 
     case FILTER_AMOUNT:
-      filterAmount = max(filterAmount - 0.02f, 0.00f);
+      filterAmount = max(filterAmount - 0.05f, 0.00f);
       applyFilterAmount();
       break;
   }
@@ -742,7 +746,6 @@ void select() {
         currentMenu = FILTER_AMOUNT;
         applyFilterAmount();
       }
-
       display.display();
       break;
 
@@ -1149,12 +1152,6 @@ void applyFilterAmount() {
   display.println(filterAmount);
   display.display();  
 }
-
-
-
-
-
-
 
 
 
