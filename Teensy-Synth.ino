@@ -14,32 +14,33 @@
 #define OLED_RESET -1
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-
 // GUItool: begin automatically generated code
-AudioSynthWaveform       waveformA;      //xy=69.23333740234375,220
-AudioFilterStateVariable filter1;        //xy=333.9833679199219,135.2333221435547
-AudioMixer4              filterTypeMixer;         //xy=500.4833679199219,258.98333740234375
-AudioEffectEnvelope      ampEnvelope;      //xy=705.4833984375,258.73333740234375
-AudioAmplifier           amp1;           //xy=871.7333374023438,258.73333740234375
+AudioSynthWaveform       waveformA;      //xy=65,268.57141494750977
+AudioEffectEnvelope      filterEnvelope;      //xy=146.04766082763672,141.76189804077148
+AudioAmplifier           filterEnvelopeAmp; //xy=341.76190185546875,144.61905097961426
+AudioFilterStateVariable filter1;        //xy=546.8404541015625,159.51903915405273
+AudioMixer4              filterTypeMixer;         //xy=589.0547637939453,258.98331451416016
+AudioEffectEnvelope      ampEnvelope;      //xy=751.1976852416992,258.7333335876465
+AudioAmplifier           amp1;           //xy=890.3047752380371,258.7333240509033
 AudioMixer4              mixerLeft;         //xy=982.4832763671875,119.23332977294922
 AudioMixer4              mixerRight;         //xy=998.4832763671875,396.23333740234375
 AudioOutputI2S           i2s1;           //xy=1041.4832763671875,262.23333740234375
 AudioConnection          patchCord1(waveformA, 0, filter1, 0);
 AudioConnection          patchCord2(waveformA, 0, filterTypeMixer, 3);
-AudioConnection          patchCord3(filter1, 0, filterTypeMixer, 0);
-AudioConnection          patchCord4(filter1, 1, filterTypeMixer, 1);
-AudioConnection          patchCord5(filter1, 2, filterTypeMixer, 2);
-AudioConnection          patchCord6(filterTypeMixer, ampEnvelope);
-AudioConnection          patchCord7(ampEnvelope, amp1);
-AudioConnection          patchCord8(amp1, 0, mixerLeft, 0);
-AudioConnection          patchCord9(amp1, 0, mixerRight, 0);
-AudioConnection          patchCord10(mixerLeft, 0, i2s1, 0);
-AudioConnection          patchCord11(mixerRight, 0, i2s1, 1);
+AudioConnection          patchCord3(waveformA, filterEnvelope);
+AudioConnection          patchCord4(filterEnvelope, filterEnvelopeAmp);
+AudioConnection          patchCord5(filterEnvelopeAmp, 0, filter1, 1);
+AudioConnection          patchCord6(filter1, 0, filterTypeMixer, 0);
+AudioConnection          patchCord7(filter1, 1, filterTypeMixer, 1);
+AudioConnection          patchCord8(filter1, 2, filterTypeMixer, 2);
+AudioConnection          patchCord9(filterTypeMixer, ampEnvelope);
+AudioConnection          patchCord10(ampEnvelope, amp1);
+AudioConnection          patchCord11(amp1, 0, mixerLeft, 0);
+AudioConnection          patchCord12(amp1, 0, mixerRight, 0);
+AudioConnection          patchCord13(mixerLeft, 0, i2s1, 0);
+AudioConnection          patchCord14(mixerRight, 0, i2s1, 1);
 AudioControlSGTL5000     sgtl5000_1;     //xy=482.23333740234375,704.2333374023438
 // GUItool: end automatically generated code
-
-
-
 
 // When ready to do each additional menu state, uncomment one at a time and do each individually, test and then move on
 enum menuState {
@@ -57,7 +58,12 @@ enum menuState {
   AMP_SUSTAIN,
   AMP_RELEASE,
   AMP_AMOUNT,
-  // FILTER_ENV,
+  FILTER_ENV,
+  FILTER_ATTACK,
+  FILTER_DECAY,
+  FILTER_SUSTAIN,
+  FILTER_RELEASE,
+  FILTER_AMOUNT,
   WAVEFORM_A,
   PITCH_A,
   PULSE_WIDTH_A,
@@ -96,6 +102,11 @@ const char* ampEnvelopeMenuItems[] = {"Attack", "Decay", "Sustain", "Release", "
 int ampEnvelopeMenuIndex = 0;
 const int ampEnvelopeMenuLength = sizeof(ampEnvelopeMenuItems) / 4;
 int ampEnvelopeMenuPageNumber = 0;
+
+const char* filterEnvelopeMenuItems[] = {"Attack", "Decay", "Sustain", "Release", "Amount"};
+int filterEnvelopeMenuIndex = 0;
+const int filterEnvelopeMenuLength = sizeof(filterEnvelopeMenuItems) / 4;
+int filterEnvelopeMenuPageNumber = 0;
 
 int oscAPitchOffset = 0;
 float oscAPulseWidth = 0.5f;
@@ -136,16 +147,26 @@ float ampAmount = 1.0f; //percentage?
 
 
 const float mixAlpha = 0.8f;
-int ampAttackEnvelopeStep = 0;
 const int envelopeStepsMax = 100;
-
 const float minEnvelopeAmount = 5.0f;
 const float maxEnvelopeAmount = 15000.0f;
 float envelopeCurveAmount = 2.0f;
 
+int ampAttackEnvelopeStep = 0;
 int ampDecayEnvelopeStep = 0;
-
 int ampReleaseEnvelopeStep = 0;
+
+
+float filterAttack = 5.0f; //ms
+float filterDecay = 5.0f; //ms
+float filterSustain = 1.0f; //percentage
+float filterRelease = 5.0f; //ms
+float filterAmount = 1.0f; //percentage?
+
+int filterAttackEnvelopeStep = 0;
+int filterDecayEnvelopeStep = 0;
+int filterReleaseEnvelopeStep = 0;
+
 
 enum filterType {
   LOW_PASS,
@@ -181,6 +202,16 @@ void setup() {
   ampEnvelope.decay(ampDecay);
   ampEnvelope.sustain(ampSustain);
   ampEnvelope.release(ampRelease);
+
+  filterEnvelope.delay(0);
+  filterEnvelope.hold(0);
+
+  filterEnvelope.attack(filterAttack);
+  filterEnvelope.decay(filterDecay);
+  filterEnvelope.sustain(filterSustain);
+  filterEnvelope.release(filterRelease); 
+
+  filterEnvelopeAmp.gain(1.0f);
 
   usbMIDI.setHandleNoteOn(onNoteOn);
   usbMIDI.setHandleNoteOff(onNoteOff);
@@ -287,9 +318,35 @@ void forward() {
       applyAmpAmount();
       break;
 
-    // case FILTER_ENV:
+    case FILTER_ENV:
+      filterEnvelopeMenuIndex = (filterEnvelopeMenuIndex + 1) % filterEnvelopeMenuLength;
+      updateMenu(filterEnvelopeMenuPageNumber, filterEnvelopeMenuIndex, filterEnvelopeMenuLength, filterEnvelopeMenuItems);
+      break;
 
-    //   break;
+    case FILTER_ATTACK:
+      filterAttackEnvelopeStep = min(filterAttackEnvelopeStep + 1, envelopeStepsMax);
+      applyFilterAttack();
+      break;
+
+    case FILTER_DECAY:
+      filterDecayEnvelopeStep = min(filterDecayEnvelopeStep + 1, envelopeStepsMax);
+      applyFilterDecay();
+      break;
+
+    case FILTER_SUSTAIN:
+      filterSustain = min(filterSustain + 0.02f, 1.00f);
+      applyFilterSustain();
+      break;
+
+    case FILTER_RELEASE:
+      filterReleaseEnvelopeStep = min(filterReleaseEnvelopeStep + 1, envelopeStepsMax);
+      applyFilterRelease();
+      break;
+
+    case FILTER_AMOUNT:
+      filterAmount = min(filterAmount+ 0.02f, 1.00f);
+      applyFilterAmount();
+      break;
   }
 }
 
@@ -383,9 +440,35 @@ void backward() {
       applyAmpAmount();
       break;
 
-    // case FILTER_ENV:
+    case FILTER_ENV:
+      filterEnvelopeMenuIndex = (filterEnvelopeMenuIndex - 1) % filterEnvelopeMenuLength;
+      updateMenu(filterEnvelopeMenuPageNumber, filterEnvelopeMenuIndex, filterEnvelopeMenuLength, filterEnvelopeMenuItems);
+      break;
 
-    //   break;
+    case FILTER_ATTACK:
+      filterAttackEnvelopeStep = max(filterAttackEnvelopeStep - 1, 0.00f);
+      applyFilterAttack();
+      break;
+
+    case FILTER_DECAY:
+      filterDecayEnvelopeStep = max(filterDecayEnvelopeStep - 1, 0.00f);
+      applyFilterDecay();
+      break;
+
+    case FILTER_SUSTAIN:
+      filterSustain = max(filterSustain - 0.02f, 0.00f);
+      applyFilterSustain();
+      break;
+
+    case FILTER_RELEASE:
+      filterReleaseEnvelopeStep = max(filterReleaseEnvelopeStep - 1, 0.00f);
+      applyFilterRelease();
+      break;
+
+    case FILTER_AMOUNT:
+      filterAmount = max(filterAmount - 0.02f, 0.00f);
+      applyFilterAmount();
+      break;
   }
 }
 
@@ -414,6 +497,12 @@ void select() {
         ampEnvelopeMenuIndex = 0;
         display.setCursor(0,0);
         updateMenu(ampEnvelopeMenuPageNumber, ampEnvelopeMenuIndex, ampEnvelopeMenuLength, ampEnvelopeMenuItems);
+      } else if (mainMenuIndex == 4) {
+        currentMenu = FILTER_ENV;
+        filterEnvelopeMenuPageNumber = 0;
+        filterEnvelopeMenuIndex = 0;
+        display.setCursor(0,0);
+        updateMenu(filterEnvelopeMenuPageNumber, filterEnvelopeMenuIndex, filterEnvelopeMenuLength, filterEnvelopeMenuItems);
       }
 
       break;
@@ -614,28 +703,68 @@ void select() {
       break;
     
     case AMP_ATTACK:
-
+      // do nothing
       break;
 
     case AMP_DECAY:
-
+      // do nothing
       break;
 
     case AMP_SUSTAIN:
-
+      // do nothing
       break;
 
     case AMP_RELEASE:
-
+      // do nothing
       break;
 
     case AMP_AMOUNT:
-
+      // do nothing
       break;
 
-    // case FILTER_ENV:
+    case FILTER_ENV:
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.setTextColor(SSD1306_WHITE);
+      if (filterEnvelopeMenuIndex == 0) {
+        currentMenu = FILTER_ATTACK;
+        applyFilterAttack();
+      } else if (filterEnvelopeMenuIndex == 1) {
+        currentMenu = FILTER_DECAY;
+        applyFilterDecay();
+      } else if (filterEnvelopeMenuIndex == 2) {
+        currentMenu = FILTER_SUSTAIN;
+        applyFilterSustain();
+      } else if (filterEnvelopeMenuIndex == 3) {
+        currentMenu = FILTER_RELEASE;
+        applyFilterRelease();
+      } else if (filterEnvelopeMenuIndex == 4) {
+        currentMenu = FILTER_AMOUNT;
+        applyFilterAmount();
+      }
 
-    //   break;
+      display.display();
+      break;
+
+    case FILTER_ATTACK:
+      // do nothing
+      break;
+
+    case FILTER_DECAY:
+      // do nothing
+      break;
+
+    case FILTER_SUSTAIN:
+      // do nothing
+      break;
+
+    case FILTER_RELEASE:
+      // do nothing
+      break;
+
+    case FILTER_AMOUNT:
+      // do nothing
+      break;
   }
 }
 
@@ -762,9 +891,47 @@ void goBack() {
       updateMenu(ampEnvelopeMenuPageNumber, ampEnvelopeMenuIndex, ampEnvelopeMenuLength, ampEnvelopeMenuItems);
       break;
 
-    // case FILTER_ENV:
+    case FILTER_ENV:
+      currentMenu = MAIN;
+      mainMenuIndex = 0;
+      mainMenuPageNumber = 0;
+      updateMenu(mainMenuPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
+      break;
 
-    //   break;
+    case FILTER_ATTACK:
+      currentMenu = FILTER_ENV;
+      filterEnvelopeMenuIndex = 0;
+      filterEnvelopeMenuPageNumber = 0;
+      updateMenu(filterEnvelopeMenuPageNumber, filterEnvelopeMenuIndex, filterEnvelopeMenuLength, filterEnvelopeMenuItems);
+      break;
+
+    case FILTER_DECAY:
+      currentMenu = FILTER_ENV;
+      filterEnvelopeMenuIndex = 0;
+      filterEnvelopeMenuPageNumber = 0;
+      updateMenu(filterEnvelopeMenuPageNumber, filterEnvelopeMenuIndex, filterEnvelopeMenuLength, filterEnvelopeMenuItems);
+      break;
+
+    case FILTER_SUSTAIN:
+      currentMenu = FILTER_ENV;
+      filterEnvelopeMenuIndex = 0;
+      filterEnvelopeMenuPageNumber = 0;
+      updateMenu(filterEnvelopeMenuPageNumber, filterEnvelopeMenuIndex, filterEnvelopeMenuLength, filterEnvelopeMenuItems);
+      break;
+
+    case FILTER_RELEASE:
+      currentMenu = FILTER_ENV;
+      filterEnvelopeMenuIndex = 0;
+      filterEnvelopeMenuPageNumber = 0;
+      updateMenu(filterEnvelopeMenuPageNumber, filterEnvelopeMenuIndex, filterEnvelopeMenuLength, filterEnvelopeMenuItems);
+      break;
+
+    case FILTER_AMOUNT:
+      currentMenu = FILTER_ENV;
+      filterEnvelopeMenuIndex = 0;
+      filterEnvelopeMenuPageNumber = 0;
+      updateMenu(filterEnvelopeMenuPageNumber, filterEnvelopeMenuIndex, filterEnvelopeMenuLength, filterEnvelopeMenuItems);
+      break;      
   }
 }
 
@@ -900,6 +1067,97 @@ void applyAmpAmount() {
   display.display();  
 }
 
+
+
+void applyFilterAttack() {
+  float norm = float(filterAttackEnvelopeStep) / envelopeStepsMax;
+  float warped = powf(norm, envelopeCurveAmount);
+  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
+  float linTime = norm * maxEnvelopeAmount;
+
+  filterAttack = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
+
+  filterEnvelope.attack(filterAttack);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Filter Attack:");
+  display.print(int(filterAttack));
+  display.println(" ms");
+  display.display();
+}
+
+void applyFilterDecay() {
+  float norm = float(filterDecayEnvelopeStep) / envelopeStepsMax;
+  float warped = powf(norm, envelopeCurveAmount);
+  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
+  float linTime = norm * maxEnvelopeAmount;
+
+  filterDecay = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
+
+  filterEnvelope.decay(filterDecay);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Filter Decay:");
+  display.print(int(filterDecay));
+  display.println(" ms");
+  display.display();
+}
+
+void applyFilterSustain() {
+  filterEnvelope.sustain(filterSustain);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Filter Sustain:");
+  display.print(filterSustain * 100);
+  display.println(" %");
+  display.display();
+}
+
+void applyFilterRelease() {
+  float norm = float(filterReleaseEnvelopeStep) / envelopeStepsMax;
+  float warped = powf(norm, envelopeCurveAmount);
+  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
+  float linTime = norm * maxEnvelopeAmount;
+
+  filterRelease = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
+
+  filterEnvelope.release(filterRelease);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Filter Release:");
+  display.print(int(filterRelease));
+  display.println(" ms");
+  display.display();  
+}
+
+void applyFilterAmount() {
+
+  filterEnvelopeAmp.gain(filterAmount);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Filter Amnt:");
+  display.println(filterAmount);
+  display.display();  
+}
+
+
+
+
+
+
+
+
+
 void applyPitchShiftA() {
   // is handled in midi noteOn
   display.clearDisplay();
@@ -929,11 +1187,13 @@ void onNoteOn(byte channel, byte note, byte velocity) {
   waveformA.amplitude(adjustedVelocity);
   
   ampEnvelope.noteOn();
+  filterEnvelope.noteOn();
 }
 
 // This will need to be changed with envelope
 void onNoteOff(byte channel, byte note, byte velocity) {
   ampEnvelope.noteOff();
+  filterEnvelope.noteOff();
 }
 
 
