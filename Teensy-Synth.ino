@@ -15,21 +15,23 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // GUItool: begin automatically generated code
-AudioSynthWaveform       waveformA;      //xy=65,268.57141494750977
-AudioEffectEnvelope      filterEnvelope;      //xy=146.04766082763672,141.76189804077148
-AudioAmplifier           filterEnvelopeAmp; //xy=341.76190185546875,144.61905097961426
-AudioFilterStateVariable filter1;        //xy=546.8404541015625,159.51903915405273
-AudioMixer4              filterTypeMixer;         //xy=589.0547637939453,258.98331451416016
+AudioSynthWaveform       waveformA;      //xy=65,252.5714111328125
+AudioSynthWaveform       waveformB;      //xy=74.23333740234375,386.23333740234375
+AudioEffectEnvelope      filterEnvelope;      //xy=111.76191711425781,87.4761848449707
+AudioMixer4              oscMixer;         //xy=254.6190071105957,290.33332443237305
+AudioAmplifier           filterEnvelopeAmp;           //xy=308.9047088623047,86.0476303100586
+AudioFilterStateVariable filter1;        //xy=536.126148223877,118.51903915405273
+AudioMixer4              filterTypeMixer;         //xy=570.4833374023438,258.98332595825195
 AudioEffectEnvelope      ampEnvelope;      //xy=751.1976852416992,258.7333335876465
 AudioAmplifier           amp1;           //xy=890.3047752380371,258.7333240509033
 AudioMixer4              mixerLeft;         //xy=982.4832763671875,119.23332977294922
 AudioMixer4              mixerRight;         //xy=998.4832763671875,396.23333740234375
 AudioOutputI2S           i2s1;           //xy=1041.4832763671875,262.23333740234375
-AudioConnection          patchCord1(waveformA, 0, filter1, 0);
-AudioConnection          patchCord2(waveformA, 0, filterTypeMixer, 3);
-AudioConnection          patchCord3(waveformA, filterEnvelope);
-AudioConnection          patchCord4(filterEnvelope, filterEnvelopeAmp);
-AudioConnection          patchCord5(filterEnvelopeAmp, 0, filter1, 1);
+AudioConnection          patchCord1(waveformA, 0, oscMixer, 0);
+AudioConnection          patchCord2(waveformB, 0, oscMixer, 1);
+AudioConnection          patchCord3(filterEnvelope, filterEnvelopeAmp);
+AudioConnection          patchCord4(oscMixer, 0, filterTypeMixer, 3);
+AudioConnection          patchCord5(oscMixer, 0, filter1, 0);
 AudioConnection          patchCord6(filter1, 0, filterTypeMixer, 0);
 AudioConnection          patchCord7(filter1, 1, filterTypeMixer, 1);
 AudioConnection          patchCord8(filter1, 2, filterTypeMixer, 2);
@@ -39,16 +41,15 @@ AudioConnection          patchCord11(amp1, 0, mixerLeft, 0);
 AudioConnection          patchCord12(amp1, 0, mixerRight, 0);
 AudioConnection          patchCord13(mixerLeft, 0, i2s1, 0);
 AudioConnection          patchCord14(mixerRight, 0, i2s1, 1);
-AudioControlSGTL5000     sgtl5000_1;     //xy=482.23333740234375,704.2333374023438
+AudioControlSGTL5000     sgtl5000_1;     //xy=516.5190315246582,462.804723739624
 // GUItool: end automatically generated code
-
 
 
 // When ready to do each additional menu state, uncomment one at a time and do each individually, test and then move on
 enum menuState {
   MAIN,
   OSC_A,
-  // OSC_B,
+  OSC_B,
   FILTER,
   FILTER_TYPE,
   FILTER_CUTOFF,
@@ -69,7 +70,11 @@ enum menuState {
   WAVEFORM_A,
   PITCH_A,
   PULSE_WIDTH_A,
-  OSC_A_ON_OFF
+  OSC_A_ON_OFF,
+  WAVEFORM_B,
+  PITCH_B,
+  PULSE_WIDTH_B,
+  OSC_B_ON_OFF
 };
 
 menuState currentMenu = MAIN;
@@ -85,10 +90,20 @@ int oscAMenuIndex = 0;
 const int oscAMenuLength = sizeof(oscAMenuItems) / 4;
 int oscAMenuPageNumber = 0;
 
-const char* waveformMenuItems[] = {"Sine", "Sawtooth", "Square", "Triangle", "Pulse"};
-int waveformMenuIndex = 0;
-const int waveformMenuLength = sizeof(waveformMenuItems) / 4;
-int waveformMenuPageNumber = 0;
+const char* waveformAMenuItems[] = {"Sine", "Sawtooth", "Square", "Triangle", "Pulse"};
+int waveformAMenuIndex = 0;
+const int waveformAMenuLength = sizeof(waveformAMenuItems) / 4;
+int waveformAMenuPageNumber = 0;
+
+const char* oscBMenuItems[] = {"Waveform", "Pitch", "Pulse Wdth", "Osc On/Off"};
+int oscBMenuIndex = 0;
+const int oscBMenuLength = sizeof(oscBMenuItems) / 4;
+int oscBMenuPageNumber = 0;
+
+const char* waveformBMenuItems[] = {"Sine", "Sawtooth", "Square", "Triangle", "Pulse"};
+int waveformBMenuIndex = 0;
+const int waveformBMenuLength = sizeof(waveformBMenuItems) / 4;
+int waveformBMenuPageNumber = 0;
 
 const char* filterMenuItems[] = {"Type", "Cutoff", "Resonance", "Ftr On/Off"};
 int filterMenuIndex = 0;
@@ -114,6 +129,14 @@ int oscAPitchOffset = 0;
 float oscAPulseWidth = 0.5f;
 bool oscAOn = true;
 
+int oscAWaveform = WAVEFORM_PULSE;
+
+int oscBPitchOffset = 0;
+float oscBPulseWidth = 0.5f;
+bool oscBOn = false;
+
+int oscBWaveform = WAVEFORM_PULSE;
+
 Encoder myEncoder(2, 3);
 const int encoderSwitchPin = 15;
 Bounce encoderSwitch = Bounce(encoderSwitchPin,20);
@@ -122,10 +145,12 @@ long lastEncoderPosition = 0;
 Bounce returnButton = Bounce(4, 20);
 const int returnButtonPin = 4;
 
-int oscAWaveform = WAVEFORM_SINE;
 
+
+// This might need to be changed to allow for individual osc panning
 float oscAGainLeft = 0.5f;
 float oscAGainRight = 0.5f;
+
 float volume = 0.5f;
 
 int minCutoffFreq = 20;
@@ -163,14 +188,16 @@ float filterAttack = 5.0f; //ms
 float filterDecay = 150.0f; //ms
 float filterSustain = 0.6f; //percentage
 float filterRelease = 500.0f; //ms
-float filterAmount = 1.0f; //percentage?
-float maxFilterAmount = 2.0f; // will change
+float filterAmount = 0.0f; //percentage?
+float maxFilterAmount = 1.0f; // will change
 
 
 int filterAttackEnvelopeStep = 0;
 int filterDecayEnvelopeStep = 0;
 int filterReleaseEnvelopeStep = 0;
 
+float oscAVolume = 0.5f;
+float oscBVolume = 0.5f;
 
 enum filterType {
   LOW_PASS,
@@ -187,8 +214,14 @@ void setup() {
   sgtl5000_1.enable();
   sgtl5000_1.volume(volume);
 
-  waveformA.begin(WAVEFORM_PULSE);
-  waveformA.pulseWidth(0.5f);
+  waveformA.begin(oscAWaveform);
+  waveformA.pulseWidth(oscAPulseWidth);
+
+  waveformB.begin(oscBWaveform);
+  waveformB.pulseWidth(oscBPulseWidth);
+
+  oscMixer.gain(0, oscAVolume);
+  oscMixer.gain(1, oscBVolume);
 
   mixerLeft.gain(0, oscAGainLeft);
   mixerRight.gain(0, oscAGainRight);
@@ -246,8 +279,8 @@ void forward() {
       break;
 
     case WAVEFORM_A:
-      waveformMenuIndex = (waveformMenuIndex + 1) % waveformMenuLength;
-      updateMenu(waveformMenuPageNumber, waveformMenuIndex, waveformMenuLength, waveformMenuItems);
+      waveformAMenuIndex = (waveformAMenuIndex + 1) % waveformAMenuLength;
+      updateMenu(waveformAMenuPageNumber, waveformAMenuIndex, waveformAMenuLength, waveformAMenuItems);
       break;
 
     case PITCH_A:
@@ -261,12 +294,33 @@ void forward() {
       break;
 
     case OSC_A_ON_OFF:
-
+      // do nothing
       break;
 
-    // case OSC_B:
+    case OSC_B:
+      oscBMenuIndex = (oscBMenuIndex + 1) % oscBMenuLength;
+      updateMenu(oscBMenuPageNumber, oscBMenuIndex, oscBMenuLength, oscBMenuItems);
+      break;
 
-    //   break;
+    case WAVEFORM_B:
+      waveformBMenuIndex = (waveformBMenuIndex + 1) % waveformBMenuLength;
+      updateMenu(waveformBMenuPageNumber, waveformBMenuIndex, waveformBMenuLength, waveformBMenuItems);
+      break;
+
+    case PITCH_B:
+      oscBPitchOffset++;
+      applyPitchShiftB();
+      break;
+
+    case PULSE_WIDTH_B:
+      oscBPulseWidth = min(oscBPulseWidth + 0.02f, 1.00f);
+      applyPulseWidthB();
+      break;
+
+    case OSC_B_ON_OFF:
+      // do nothing
+      break;
+    
 
     case FILTER:
       filterMenuIndex = (filterMenuIndex + 1) % filterMenuLength;
@@ -368,8 +422,8 @@ void backward() {
       break;
 
     case WAVEFORM_A:
-      waveformMenuIndex = (waveformMenuIndex - 1) % waveformMenuLength;
-      updateMenu(waveformMenuPageNumber, waveformMenuIndex, waveformMenuLength, waveformMenuItems);
+      waveformAMenuIndex = (waveformAMenuIndex - 1) % waveformAMenuLength;
+      updateMenu(waveformAMenuPageNumber, waveformAMenuIndex, waveformAMenuLength, waveformAMenuItems);
       break;
 
     case PITCH_A:
@@ -386,9 +440,29 @@ void backward() {
       // do nothing
       break;
 
-    // case OSC_B:
+    case OSC_B:
+      oscBMenuIndex = (oscBMenuIndex - 1) % oscBMenuLength;
+      updateMenu(oscBMenuPageNumber, oscBMenuIndex, oscBMenuLength, oscBMenuItems);
+      break;
 
-    //   break;
+    case WAVEFORM_B:
+      waveformBMenuIndex = (waveformBMenuIndex - 1) % waveformBMenuLength;
+      updateMenu(waveformBMenuPageNumber, waveformBMenuIndex, waveformBMenuLength, waveformBMenuItems);
+      break;
+
+    case PITCH_B:
+      oscBPitchOffset--;
+      applyPitchShiftB();
+      break;
+
+    case PULSE_WIDTH_B:
+      oscBPulseWidth = max(oscBPulseWidth - 0.02f, 0.00f);
+      applyPulseWidthB();
+      break;
+
+    case OSC_B_ON_OFF:
+      // do nothing
+      break;
 
     case FILTER:
       filterMenuIndex = (filterMenuIndex - 1) % filterMenuLength;
@@ -488,7 +562,11 @@ void select() {
         display.setCursor(0,0);
         updateMenu(oscAMenuPageNumber, oscAMenuIndex, oscAMenuLength, oscAMenuItems);
       } else if (mainMenuIndex == 1) {
-
+        currentMenu = OSC_B;
+        oscBMenuPageNumber = 0;
+        oscBMenuIndex = 0;
+        display.setCursor(0,0);
+        updateMenu(oscBMenuPageNumber, oscBMenuIndex, oscBMenuLength, oscBMenuItems);        
       } else if (mainMenuIndex == 2) {
         currentMenu = FILTER;
         filterMenuPageNumber = 0;
@@ -508,15 +586,14 @@ void select() {
         display.setCursor(0,0);
         updateMenu(filterEnvelopeMenuPageNumber, filterEnvelopeMenuIndex, filterEnvelopeMenuLength, filterEnvelopeMenuItems);
       }
-
       break;
 
     case OSC_A:
       if (oscAMenuIndex == 0) {
         currentMenu = WAVEFORM_A;
-        waveformMenuIndex = 0;
-        waveformMenuPageNumber = 0;
-        updateMenu(waveformMenuPageNumber, waveformMenuIndex, waveformMenuLength, waveformMenuItems);
+        waveformAMenuIndex = 0;
+        waveformAMenuPageNumber = 0;
+        updateMenu(waveformAMenuPageNumber, waveformAMenuIndex, waveformAMenuLength, waveformAMenuItems);
       } else if (oscAMenuIndex == 1) {
         currentMenu = PITCH_A;
         applyPitchShiftA();
@@ -531,12 +608,10 @@ void select() {
         display.setTextColor(SSD1306_WHITE);
         if(oscAOn) {
           display.println("Osc A On");
-          mixerLeft.gain(0, oscAGainLeft);
-          mixerRight.gain(0, oscAGainRight);
+          oscMixer.gain(0, oscAVolume);
         } else {
           display.println("Osc A Off");
-          mixerLeft.gain(0, 0);
-          mixerRight.gain(0, 0);
+          oscMixer.gain(0, 0);
         }
         display.display();
       }
@@ -547,19 +622,19 @@ void select() {
       display.setCursor(0, 0);
       display.setTextColor(SSD1306_WHITE);
       display.println("Selected:");
-      if (waveformMenuIndex == 0){
+      if (waveformAMenuIndex == 0){
         oscAWaveform = WAVEFORM_SINE;
         display.println("Sine");
-      } else if (waveformMenuIndex == 1) {
+      } else if (waveformAMenuIndex == 1) {
         oscAWaveform = WAVEFORM_SAWTOOTH;
         display.println("Sawtooth");
-      } else if (waveformMenuIndex == 2) {
+      } else if (waveformAMenuIndex == 2) {
         oscAWaveform = WAVEFORM_SQUARE;
         display.println("Square");
-      } else if (waveformMenuIndex == 3) {
+      } else if (waveformAMenuIndex == 3) {
         oscAWaveform = WAVEFORM_TRIANGLE;
         display.println("Triangle");
-      } else if (waveformMenuIndex == 4) {
+      } else if (waveformAMenuIndex == 4) {
         oscAWaveform = WAVEFORM_PULSE;
         display.println("Pulse");
       }
@@ -580,9 +655,71 @@ void select() {
       // do nothing
       break;
 
-    // case OSC_B:
+    case OSC_B:
+      if (oscBMenuIndex == 0) {
+        currentMenu = WAVEFORM_B;
+        waveformBMenuIndex = 0;
+        waveformBMenuPageNumber = 0;
+        updateMenu(waveformBMenuPageNumber, waveformBMenuIndex, waveformBMenuLength, waveformBMenuItems);
+      } else if (oscBMenuIndex == 1) {
+        currentMenu = PITCH_B;
+        applyPitchShiftB();
+      } else if (oscBMenuIndex == 2) {
+        currentMenu = PULSE_WIDTH_B;
+        applyPulseWidthB();
+        waveformB.pulseWidth(oscBPulseWidth);
+      } else if (oscBMenuIndex == 3) {
+        oscBOn = !oscBOn;
+        display.clearDisplay();
+        display.setCursor(0, 0);
+        display.setTextColor(SSD1306_WHITE);
+        if(oscBOn) {
+          display.println("Osc B On");
+          oscMixer.gain(1, oscBVolume);
+        } else {
+          display.println("Osc B Off");
+          oscMixer.gain(1, 0);
+        }
+        display.display();
+      }
+      break;
 
-    //   break;
+    case WAVEFORM_B:
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.setTextColor(SSD1306_WHITE);
+      display.println("Selected:");
+      if (waveformBMenuIndex == 0){
+        oscBWaveform = WAVEFORM_SINE;
+        display.println("Sine");
+      } else if (waveformBMenuIndex == 1) {
+        oscBWaveform = WAVEFORM_SAWTOOTH;
+        display.println("Sawtooth");
+      } else if (waveformBMenuIndex == 2) {
+        oscBWaveform = WAVEFORM_SQUARE;
+        display.println("Square");
+      } else if (waveformBMenuIndex == 3) {
+        oscBWaveform = WAVEFORM_TRIANGLE;
+        display.println("Triangle");
+      } else if (waveformBMenuIndex == 4) {
+        oscBWaveform = WAVEFORM_PULSE;
+        display.println("Pulse");
+      }
+      waveformB.begin(oscBWaveform);
+      display.display();
+      break;
+
+    case PITCH_B:
+      // do nothing
+      break;
+
+    case PULSE_WIDTH_B:
+      // do nothing
+      break;
+
+    case OSC_B_ON_OFF:
+      // do nothing
+      break;
 
     case FILTER:
       display.clearDisplay();
@@ -813,10 +950,41 @@ void goBack() {
       updateMenu(oscAMenuPageNumber, oscAMenuIndex, oscAMenuLength, oscAMenuItems);
       break;
 
-    // case OSC_B:
+    case OSC_B:
+      display.setCursor(0,0);
+      currentMenu = MAIN;
+      mainMenuIndex = 0;
+      mainMenuPageNumber = 0;
+      updateMenu(mainMenuPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
+      break;
 
-    //   break;
+    case WAVEFORM_B:
+      currentMenu = OSC_B;
+      oscBMenuIndex = 0;
+      oscBMenuPageNumber = 0;
+      updateMenu(oscBMenuPageNumber, oscBMenuIndex, oscBMenuLength, oscBMenuItems);
+      break;
 
+    case PITCH_B:
+      currentMenu = OSC_B;
+      oscBMenuIndex = 0;
+      oscBMenuPageNumber = 0;
+      updateMenu(oscBMenuPageNumber, oscBMenuIndex, oscBMenuLength, oscBMenuItems);
+      break;
+
+    case PULSE_WIDTH_B:
+      currentMenu = OSC_B;
+      oscBMenuIndex = 0;
+      oscBMenuPageNumber = 0;
+      updateMenu(oscBMenuPageNumber, oscBMenuIndex, oscBMenuLength, oscBMenuItems);
+      break;
+
+    case OSC_B_ON_OFF:
+      currentMenu = OSC_B;
+      oscBMenuIndex = 0;
+      oscBMenuPageNumber = 0;
+      updateMenu(oscBMenuPageNumber, oscBMenuIndex, oscBMenuLength, oscBMenuItems);
+      break;
     case FILTER:
       currentMenu = MAIN;
       mainMenuIndex = 0;
@@ -961,6 +1129,7 @@ void loop() {
   if(returnButton.fallingEdge()) {
     goBack();
   }
+
 }
 
 void updateMenu(int pageNumber, int& menuIndex, int menuLength, const char* menuItems[]) {
@@ -1177,11 +1346,38 @@ void applyPulseWidthA() {
   display.display();
 }
 
+
+void applyPitchShiftB() {
+  // is handled in midi noteOn
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Pitch shft");
+  display.print(oscBPitchOffset);
+  display.print(" st");
+  display.display();
+}
+
+void applyPulseWidthB() {
+  waveformB.pulseWidth(oscBPulseWidth);
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Pulse Wdth");
+  display.print(oscBPulseWidth);
+  display.print(" duty");
+  display.display();
+}
+
 void onNoteOn(byte channel, byte note, byte velocity) {
   float freqA = 440.0 * pow(2.0, (note + oscAPitchOffset - 69) / 12.0);
+  float freqB = 440.0 * pow(2.0, (note + oscBPitchOffset - 69) / 12.0);
+
   float adjustedVelocity = float(velocity)/127.0f;
   waveformA.frequency(freqA);
   waveformA.amplitude(adjustedVelocity);
+  waveformB.frequency(freqB);
+  waveformB.amplitude(adjustedVelocity);
   
   ampEnvelope.noteOn();
   filterEnvelope.noteOn();
