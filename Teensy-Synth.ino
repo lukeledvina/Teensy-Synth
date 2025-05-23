@@ -70,10 +70,12 @@ enum menuState {
   WAVEFORM_A,
   PITCH_A,
   PULSE_WIDTH_A,
+  VOLUME_A,
   OSC_A_ON_OFF,
   WAVEFORM_B,
   PITCH_B,
   PULSE_WIDTH_B,
+  VOLUME_B,
   OSC_B_ON_OFF
 };
 
@@ -85,7 +87,7 @@ const int mainMenuLength = sizeof(mainMenuItems) / 4;
 int mainMenuPageNumber = 0;
 const int itemsPerPage = 3;
 
-const char* oscAMenuItems[] = {"Waveform", "Pitch", "Pulse Wdth", "Osc On/Off"};
+const char* oscAMenuItems[] = {"Waveform", "Pitch", "Pulse Wdth", "Volume", "Osc On/Off"};
 int oscAMenuIndex = 0;
 const int oscAMenuLength = sizeof(oscAMenuItems) / 4;
 int oscAMenuPageNumber = 0;
@@ -95,7 +97,7 @@ int waveformAMenuIndex = 0;
 const int waveformAMenuLength = sizeof(waveformAMenuItems) / 4;
 int waveformAMenuPageNumber = 0;
 
-const char* oscBMenuItems[] = {"Waveform", "Pitch", "Pulse Wdth", "Osc On/Off"};
+const char* oscBMenuItems[] = {"Waveform", "Pitch", "Pulse Wdth", "Volume", "Osc On/Off"};
 int oscBMenuIndex = 0;
 const int oscBMenuLength = sizeof(oscBMenuItems) / 4;
 int oscBMenuPageNumber = 0;
@@ -221,7 +223,7 @@ void setup() {
   waveformB.pulseWidth(oscBPulseWidth);
 
   oscMixer.gain(0, oscAVolume);
-  oscMixer.gain(1, oscBVolume);
+  oscMixer.gain(1, 0.0f);
 
   mixerLeft.gain(0, oscAGainLeft);
   mixerRight.gain(0, oscAGainRight);
@@ -291,6 +293,11 @@ void forward() {
     case PULSE_WIDTH_A:
       oscAPulseWidth = min(oscAPulseWidth + 0.02f, 1.00f);
       applyPulseWidthA();
+      break;
+
+    case VOLUME_A:
+      oscAVolume = min(oscAVolume + 0.02f, 1.00f);
+      applyVolumeA();
       break;
 
     case OSC_A_ON_OFF:
@@ -434,6 +441,11 @@ void backward() {
     case PULSE_WIDTH_A:
       oscAPulseWidth = max(oscAPulseWidth - 0.02f, 0.00f);
       applyPulseWidthA();
+      break;
+
+    case VOLUME_A:
+      oscAVolume = max(oscAVolume - 0.02f, 0.00f);
+      applyVolumeA();
       break;
 
     case OSC_A_ON_OFF:
@@ -602,6 +614,9 @@ void select() {
         applyPulseWidthA();
         waveformA.pulseWidth(oscAPulseWidth);
       } else if (oscAMenuIndex == 3) {
+        currentMenu = VOLUME_A;
+        applyVolumeA();
+      } else if (oscAMenuIndex == 4) {
         oscAOn = !oscAOn;
         display.clearDisplay();
         display.setCursor(0, 0);
@@ -648,6 +663,10 @@ void select() {
       break;
 
     case PULSE_WIDTH_A:
+      // do nothing
+      break;
+
+    case VOLUME_A:
       // do nothing
       break;
 
@@ -937,6 +956,13 @@ void goBack() {
       break;
 
     case PULSE_WIDTH_A:
+      currentMenu = OSC_A;
+      oscAMenuIndex = 0;
+      oscAMenuPageNumber = 0;
+      updateMenu(oscAMenuPageNumber, oscAMenuIndex, oscAMenuLength, oscAMenuItems);
+      break;
+
+    case VOLUME_A:
       currentMenu = OSC_A;
       oscAMenuIndex = 0;
       oscAMenuPageNumber = 0;
@@ -1346,6 +1372,16 @@ void applyPulseWidthA() {
   display.display();
 }
 
+void applyVolumeA() {
+  oscMixer.gain(0, oscAVolume);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Volume");
+  display.println(oscAVolume);
+  display.display();
+}
 
 void applyPitchShiftB() {
   // is handled in midi noteOn
