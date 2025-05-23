@@ -324,6 +324,11 @@ void forward() {
       applyPulseWidthB();
       break;
 
+    case VOLUME_B:
+      oscBVolume = min(oscBVolume + 0.02f, 1.00f);
+      applyVolumeB();
+      break;
+
     case OSC_B_ON_OFF:
       // do nothing
       break;
@@ -470,6 +475,11 @@ void backward() {
     case PULSE_WIDTH_B:
       oscBPulseWidth = max(oscBPulseWidth - 0.02f, 0.00f);
       applyPulseWidthB();
+      break;
+
+    case VOLUME_B:
+      oscBVolume = max(oscBVolume - 0.02f, 0.00f);
+      applyVolumeB();
       break;
 
     case OSC_B_ON_OFF:
@@ -688,6 +698,9 @@ void select() {
         applyPulseWidthB();
         waveformB.pulseWidth(oscBPulseWidth);
       } else if (oscBMenuIndex == 3) {
+        currentMenu = VOLUME_B;
+        applyVolumeB();
+      } else if (oscBMenuIndex == 4) {
         oscBOn = !oscBOn;
         display.clearDisplay();
         display.setCursor(0, 0);
@@ -733,6 +746,10 @@ void select() {
       break;
 
     case PULSE_WIDTH_B:
+      // do nothing
+      break;
+
+    case VOLUME_B:
       // do nothing
       break;
 
@@ -999,6 +1016,13 @@ void goBack() {
       break;
 
     case PULSE_WIDTH_B:
+      currentMenu = OSC_B;
+      oscBMenuIndex = 0;
+      oscBMenuPageNumber = 0;
+      updateMenu(oscBMenuPageNumber, oscBMenuIndex, oscBMenuLength, oscBMenuItems);
+      break;
+
+    case VOLUME_B:
       currentMenu = OSC_B;
       oscBMenuIndex = 0;
       oscBMenuPageNumber = 0;
@@ -1402,6 +1426,17 @@ void applyPulseWidthB() {
   display.println("Pulse Wdth");
   display.print(oscBPulseWidth);
   display.print(" duty");
+  display.display();
+}
+
+void applyVolumeB() {
+  oscMixer.gain(1, oscBVolume);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Volume");
+  display.println(oscBVolume);
   display.display();
 }
 
