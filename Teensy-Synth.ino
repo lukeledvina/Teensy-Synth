@@ -209,7 +209,7 @@ enum filterType {
 
 filterType currentFilterType = LOW_PASS;
 
-
+int mostRecentNote;
 
 void setup() {
   AudioMemory(32);
@@ -1441,6 +1441,8 @@ void applyVolumeB() {
 }
 
 void onNoteOn(byte channel, byte note, byte velocity) {
+  mostRecentNote = note;
+
   float freqA = 440.0 * pow(2.0, (note + oscAPitchOffset - 69) / 12.0);
   float freqB = 440.0 * pow(2.0, (note + oscBPitchOffset - 69) / 12.0);
 
@@ -1456,8 +1458,11 @@ void onNoteOn(byte channel, byte note, byte velocity) {
 
 // This will need to be changed with envelope
 void onNoteOff(byte channel, byte note, byte velocity) {
-  ampEnvelope.noteOff();
-  filterEnvelope.noteOff();
+  // should work well for mono, may need to change for polyphony
+  if (note == mostRecentNote) {
+    ampEnvelope.noteOff();
+    filterEnvelope.noteOff();
+  }
 }
 
 
