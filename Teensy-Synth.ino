@@ -76,7 +76,8 @@ enum menuState {
   PITCH_B,
   PULSE_WIDTH_B,
   VOLUME_B,
-  OSC_B_ON_OFF
+  OSC_B_ON_OFF,
+  MAIN_VOLUME
 };
 
 menuState currentMenu = MAIN;
@@ -153,7 +154,7 @@ const int returnButtonPin = 4;
 float oscAGainLeft = 0.5f;
 float oscAGainRight = 0.5f;
 
-float volume = 0.5f;
+float volume = 1.0f;
 
 int minCutoffFreq = 20;
 int maxCutoffFreq = 15000;
@@ -212,9 +213,11 @@ filterType currentFilterType = LOW_PASS;
 int mostRecentNote;
 
 void setup() {
+  Serial.begin(9600);
+
   AudioMemory(32);
   sgtl5000_1.enable();
-  sgtl5000_1.volume(volume);
+  sgtl5000_1.volume(0.5f);
 
   waveformA.begin(oscAWaveform);
   waveformA.pulseWidth(oscAPulseWidth);
@@ -417,6 +420,11 @@ void forward() {
       filterAmount = min(filterAmount + 0.05f, maxFilterAmount); // will be changed
       applyFilterAmount();
       break;
+
+    case MAIN_VOLUME:
+      volume = min(volume + 0.02f, 1.00f);
+      applyMainVolume();
+      break;
   }
 }
 
@@ -569,6 +577,11 @@ void backward() {
       filterAmount = max(filterAmount - 0.05f, 0.00f);
       applyFilterAmount();
       break;
+
+    case MAIN_VOLUME:
+      volume = max(volume - 0.02f, 0.00f);
+      applyMainVolume();
+      break;
   }
 }
 
@@ -607,6 +620,9 @@ void select() {
         filterEnvelopeMenuIndex = 0;
         display.setCursor(0,0);
         updateMenu(filterEnvelopeMenuPageNumber, filterEnvelopeMenuIndex, filterEnvelopeMenuLength, filterEnvelopeMenuItems);
+      } else if (mainMenuIndex == 5) {
+        currentMenu = MAIN_VOLUME;
+        applyMainVolume();
       }
       break;
 
@@ -941,6 +957,9 @@ void select() {
     case FILTER_AMOUNT:
       // do nothing
       break;
+    case MAIN_VOLUME:
+      // do nothing
+      break;
   }
 }
 
@@ -1152,7 +1171,14 @@ void goBack() {
       filterEnvelopeMenuIndex = 0;
       filterEnvelopeMenuPageNumber = 0;
       updateMenu(filterEnvelopeMenuPageNumber, filterEnvelopeMenuIndex, filterEnvelopeMenuLength, filterEnvelopeMenuItems);
-      break;      
+      break;   
+
+    case MAIN_VOLUME:
+      currentMenu = MAIN;
+      mainMenuIndex = 0;
+      mainMenuPageNumber = 0;
+      updateMenu(mainMenuPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
+      break;   
   }
 }
 
@@ -1205,6 +1231,19 @@ void updateMenu(int pageNumber, int& menuIndex, int menuLength, const char* menu
     display.println(menuItems[i]);
   }
 
+  display.display();
+}
+
+void applyMainVolume() {
+  oscMixer.gain(0, oscAVolume * volume);
+  oscMixer.gain(1, oscBVolume * volume);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Volume:");
+  display.print(volume * 100);
+  display.println(" %");
   display.display();
 }
 
@@ -1397,13 +1436,15 @@ void applyPulseWidthA() {
 }
 
 void applyVolumeA() {
-  oscMixer.gain(0, oscAVolume);
+
+  oscMixer.gain(0, oscAVolume * volume); //missing
 
   display.clearDisplay();
   display.setCursor(0, 0);
   display.setTextColor(SSD1306_WHITE);
-  display.println("Volume");
-  display.println(oscAVolume);
+  display.println("Volume:");
+  display.print(oscAVolume * 100);
+  display.println(" %");
   display.display();
 }
 
@@ -1430,13 +1471,14 @@ void applyPulseWidthB() {
 }
 
 void applyVolumeB() {
-  oscMixer.gain(1, oscBVolume);
+  oscMixer.gain(1, oscBVolume * volume);  //BREAKS WHEN I ADD * VOLUME RIGHT HERE, OR NOT...???
 
   display.clearDisplay();
   display.setCursor(0, 0);
   display.setTextColor(SSD1306_WHITE);
-  display.println("Volume");
-  display.println(oscBVolume);
+  display.println("Volume:");
+  display.print(oscBVolume * 100);
+  display.println(" %");
   display.display();
 }
 
@@ -1493,4 +1535,6 @@ void applyFilterResonance() {
   display.print(filterResonance * 100);
   display.println(" %");
   display.display();
+
+
 }
