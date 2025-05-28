@@ -14,35 +14,40 @@
 #define OLED_RESET -1
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+
 // GUItool: begin automatically generated code
-AudioSynthWaveform       waveformA;      //xy=65,252.5714111328125
+AudioSynthWaveformDc     dc1;            //xy=67.9000015258789,135.3444423675537
+AudioSynthWaveform       waveformA;      //xy=72.14284896850586,271.14281272888184
 AudioSynthWaveform       waveformB;      //xy=74.23333740234375,386.23333740234375
-AudioEffectEnvelope      filterEnvelope;      //xy=111.76191711425781,87.4761848449707
+AudioEffectEnvelope      filterEnvelope;      //xy=244.87303161621094,130.1428623199463
 AudioMixer4              oscMixer;         //xy=254.6190071105957,290.33332443237305
-AudioAmplifier           filterEnvelopeAmp;           //xy=308.9047088623047,86.0476303100586
-AudioFilterStateVariable filter1;        //xy=536.126148223877,118.51903915405273
+AudioAmplifier           filterEnvelopeAmp;           //xy=432.4814758300781,131.37037467956543
 AudioMixer4              filterTypeMixer;         //xy=570.4833374023438,258.98332595825195
+AudioFilterStateVariable filter1;        //xy=608.1261596679688,125.51904296875
 AudioEffectEnvelope      ampEnvelope;      //xy=751.1976852416992,258.7333335876465
 AudioAmplifier           amp1;           //xy=890.3047752380371,258.7333240509033
 AudioMixer4              mixerLeft;         //xy=982.4832763671875,119.23332977294922
 AudioMixer4              mixerRight;         //xy=998.4832763671875,396.23333740234375
 AudioOutputI2S           i2s1;           //xy=1041.4832763671875,262.23333740234375
-AudioConnection          patchCord1(waveformA, 0, oscMixer, 0);
-AudioConnection          patchCord2(waveformB, 0, oscMixer, 1);
-AudioConnection          patchCord3(filterEnvelope, filterEnvelopeAmp);
-AudioConnection          patchCord4(oscMixer, 0, filterTypeMixer, 3);
-AudioConnection          patchCord5(oscMixer, 0, filter1, 0);
-AudioConnection          patchCord6(filter1, 0, filterTypeMixer, 0);
-AudioConnection          patchCord7(filter1, 1, filterTypeMixer, 1);
-AudioConnection          patchCord8(filter1, 2, filterTypeMixer, 2);
-AudioConnection          patchCord9(filterTypeMixer, ampEnvelope);
-AudioConnection          patchCord10(ampEnvelope, amp1);
-AudioConnection          patchCord11(amp1, 0, mixerLeft, 0);
-AudioConnection          patchCord12(amp1, 0, mixerRight, 0);
-AudioConnection          patchCord13(mixerLeft, 0, i2s1, 0);
-AudioConnection          patchCord14(mixerRight, 0, i2s1, 1);
-AudioControlSGTL5000     sgtl5000_1;     //xy=516.5190315246582,462.804723739624
+AudioConnection          patchCord1(dc1, filterEnvelope);
+AudioConnection          patchCord2(waveformA, 0, oscMixer, 0);
+AudioConnection          patchCord3(waveformB, 0, oscMixer, 1);
+AudioConnection          patchCord4(filterEnvelope, filterEnvelopeAmp);
+AudioConnection          patchCord5(oscMixer, 0, filterTypeMixer, 3);
+AudioConnection          patchCord6(oscMixer, 0, filter1, 0);
+AudioConnection          patchCord7(filterEnvelopeAmp, 0, filter1, 1);
+AudioConnection          patchCord8(filterTypeMixer, ampEnvelope);
+AudioConnection          patchCord9(filter1, 0, filterTypeMixer, 0);
+AudioConnection          patchCord10(filter1, 1, filterTypeMixer, 1);
+AudioConnection          patchCord11(filter1, 2, filterTypeMixer, 2);
+AudioConnection          patchCord12(ampEnvelope, amp1);
+AudioConnection          patchCord13(amp1, 0, mixerLeft, 0);
+AudioConnection          patchCord14(amp1, 0, mixerRight, 0);
+AudioConnection          patchCord15(mixerLeft, 0, i2s1, 0);
+AudioConnection          patchCord16(mixerRight, 0, i2s1, 1);
+AudioControlSGTL5000     sgtl5000_1;     //xy=539.1976928710938,504.411865234375
 // GUItool: end automatically generated code
+
 
 
 // When ready to do each additional menu state, uncomment one at a time and do each individually, test and then move on
@@ -231,6 +236,8 @@ void setup() {
   mixerLeft.gain(0, oscAGainLeft);
   mixerRight.gain(0, oscAGainRight);
 
+  dc1.amplitude(1);
+
   filterTypeMixer.gain(0, 0);
   filterTypeMixer.gain(1, 0);
   filterTypeMixer.gain(2, 0);
@@ -253,7 +260,7 @@ void setup() {
   filterEnvelope.sustain(filterSustain);
   filterEnvelope.release(filterRelease); 
 
-  filterEnvelopeAmp.gain(filterAmount);
+  filterEnvelopeAmp.gain(filterAmount); //for now (could be amount later)
 
   usbMIDI.setHandleNoteOn(onNoteOn);
   usbMIDI.setHandleNoteOff(onNoteOff);
@@ -1327,8 +1334,6 @@ void applyAmpAmount() {
   display.println(ampAmount);
   display.display();  
 }
-
-
 
 void applyFilterAttack() {
   float norm = float(filterAttackEnvelopeStep) / envelopeStepsMax;
