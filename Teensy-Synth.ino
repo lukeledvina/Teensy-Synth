@@ -74,11 +74,13 @@ enum menuState {
   FILTER_AMOUNT,
   WAVEFORM_A,
   PITCH_A,
+  DETUNE_A,
   PULSE_WIDTH_A,
   VOLUME_A,
   OSC_A_ON_OFF,
   WAVEFORM_B,
   PITCH_B,
+  DETUNE_B,
   PULSE_WIDTH_B,
   VOLUME_B,
   OSC_B_ON_OFF,
@@ -93,7 +95,8 @@ const int mainMenuLength = sizeof(mainMenuItems) / 4;
 int mainMenuPageNumber = 0;
 const int itemsPerPage = 3;
 
-const char* oscAMenuItems[] = {"Waveform", "Pitch", "Pulse Wdth", "Volume", "Osc On/Off"};
+// changed "Pitch" to "Semi", although it is still called pitch elsewhere in code
+const char* oscAMenuItems[] = {"Waveform", "Semi", "Detune", "Pulse Wdth", "Volume", "Osc On/Off"};
 int oscAMenuIndex = 0;
 const int oscAMenuLength = sizeof(oscAMenuItems) / 4;
 int oscAMenuPageNumber = 0;
@@ -103,7 +106,7 @@ int waveformAMenuIndex = 0;
 const int waveformAMenuLength = sizeof(waveformAMenuItems) / 4;
 int waveformAMenuPageNumber = 0;
 
-const char* oscBMenuItems[] = {"Waveform", "Pitch", "Pulse Wdth", "Volume", "Osc On/Off"};
+const char* oscBMenuItems[] = {"Waveform", "Semi", "Detune", "Pulse Wdth", "Volume", "Osc On/Off"};
 int oscBMenuIndex = 0;
 const int oscBMenuLength = sizeof(oscBMenuItems) / 4;
 int oscBMenuPageNumber = 0;
@@ -207,6 +210,12 @@ int filterReleaseEnvelopeStep = 0;
 float oscAVolume = 0.5f;
 float oscBVolume = 0.5f;
 
+
+float currentDetuneA = 0;
+float currentDetuneB = 0;
+
+
+
 enum filterType {
   LOW_PASS,
   BAND_PASS,
@@ -300,6 +309,11 @@ void forward() {
       applyPitchShiftA();
       break;
 
+    case DETUNE_A:
+      currentDetuneA++;
+      applyDetuneA();
+      break;
+
     case PULSE_WIDTH_A:
       oscAPulseWidth = min(oscAPulseWidth + 0.02f, 1.00f);
       applyPulseWidthA();
@@ -327,6 +341,11 @@ void forward() {
     case PITCH_B:
       oscBPitchOffset++;
       applyPitchShiftB();
+      break;
+
+    case DETUNE_B:
+      currentDetuneB++;
+      applyDetuneB();
       break;
 
     case PULSE_WIDTH_B:
@@ -458,6 +477,11 @@ void backward() {
       applyPitchShiftA();
       break;
 
+    case DETUNE_A:
+      currentDetuneA--;
+      applyDetuneA();
+      break;
+
     case PULSE_WIDTH_A:
       oscAPulseWidth = max(oscAPulseWidth - 0.02f, 0.00f);
       applyPulseWidthA();
@@ -485,6 +509,11 @@ void backward() {
     case PITCH_B:
       oscBPitchOffset--;
       applyPitchShiftB();
+      break;
+
+    case DETUNE_B:
+      currentDetuneB--;
+      applyDetuneB();
       break;
 
     case PULSE_WIDTH_B:
@@ -643,13 +672,16 @@ void select() {
         currentMenu = PITCH_A;
         applyPitchShiftA();
       } else if (oscAMenuIndex == 2) {
+        currentMenu = DETUNE_A;
+        applyDetuneA();
+      } else if (oscAMenuIndex == 3) {
         currentMenu = PULSE_WIDTH_A;
         applyPulseWidthA();
-        waveformA.pulseWidth(oscAPulseWidth);
-      } else if (oscAMenuIndex == 3) {
+        // waveformA.pulseWidth(oscAPulseWidth);
+      } else if (oscAMenuIndex == 4) {
         currentMenu = VOLUME_A;
         applyVolumeA();
-      } else if (oscAMenuIndex == 4) {
+      } else if (oscAMenuIndex == 5) {
         oscAOn = !oscAOn;
         display.clearDisplay();
         display.setCursor(0, 0);
@@ -695,6 +727,10 @@ void select() {
       // do nothing
       break;
 
+    case DETUNE_A:
+      // do nothing
+      break;
+
     case PULSE_WIDTH_A:
       // do nothing
       break;
@@ -716,14 +752,17 @@ void select() {
       } else if (oscBMenuIndex == 1) {
         currentMenu = PITCH_B;
         applyPitchShiftB();
-      } else if (oscBMenuIndex == 2) {
+      } else if(oscBMenuIndex == 2) {
+        currentMenu = DETUNE_B;
+        applyDetuneB();
+      } else if (oscBMenuIndex == 3) {
         currentMenu = PULSE_WIDTH_B;
         applyPulseWidthB();
-        waveformB.pulseWidth(oscBPulseWidth);
-      } else if (oscBMenuIndex == 3) {
+        // waveformB.pulseWidth(oscBPulseWidth);
+      } else if (oscBMenuIndex == 4) {
         currentMenu = VOLUME_B;
         applyVolumeB();
-      } else if (oscBMenuIndex == 4) {
+      } else if (oscBMenuIndex == 5) {
         oscBOn = !oscBOn;
         display.clearDisplay();
         display.setCursor(0, 0);
@@ -768,6 +807,9 @@ void select() {
       // do nothing
       break;
 
+    case DETUNE_B:
+      // do nothing
+      break;
     case PULSE_WIDTH_B:
       // do nothing
       break;
@@ -998,6 +1040,13 @@ void goBack() {
       updateMenu(oscAMenuPageNumber, oscAMenuIndex, oscAMenuLength, oscAMenuItems);
       break;
 
+    case DETUNE_A:
+      currentMenu = OSC_A;
+      oscAMenuIndex = 0;
+      oscAMenuPageNumber = 0;
+      updateMenu(oscAMenuPageNumber, oscAMenuIndex, oscAMenuLength, oscAMenuItems);
+      break;
+
     case PULSE_WIDTH_A:
       currentMenu = OSC_A;
       oscAMenuIndex = 0;
@@ -1035,6 +1084,13 @@ void goBack() {
       break;
 
     case PITCH_B:
+      currentMenu = OSC_B;
+      oscBMenuIndex = 0;
+      oscBMenuPageNumber = 0;
+      updateMenu(oscBMenuPageNumber, oscBMenuIndex, oscBMenuLength, oscBMenuItems);
+      break;
+
+    case DETUNE_B:
       currentMenu = OSC_B;
       oscBMenuIndex = 0;
       oscBMenuPageNumber = 0;
@@ -1429,6 +1485,17 @@ void applyPitchShiftA() {
   display.display();
 }
 
+void applyDetuneA() {
+  // is handled in midi noteOn
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Detune:");
+  display.print(int(currentDetuneA));
+  display.print(" ct");
+  display.display();
+}
+
 void applyPulseWidthA() {
   waveformA.pulseWidth(oscAPulseWidth);
   display.clearDisplay();
@@ -1464,6 +1531,17 @@ void applyPitchShiftB() {
   display.display();
 }
 
+void applyDetuneB() {
+  // is handled in midi noteOn
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Detune:");
+  display.print(int(currentDetuneB));
+  display.print(" ct");
+  display.display();
+}
+
 void applyPulseWidthB() {
   waveformB.pulseWidth(oscBPulseWidth);
   display.clearDisplay();
@@ -1490,8 +1568,8 @@ void applyVolumeB() {
 void onNoteOn(byte channel, byte note, byte velocity) {
   mostRecentNote = note;
 
-  float freqA = 440.0 * pow(2.0, (note + oscAPitchOffset - 69) / 12.0);
-  float freqB = 440.0 * pow(2.0, (note + oscBPitchOffset - 69) / 12.0);
+  float freqA = 440.0 * pow(2.0, (note + oscAPitchOffset + (currentDetuneA / 100.0f) - 69) / 12.0);
+  float freqB = 440.0 * pow(2.0, (note + oscBPitchOffset + (currentDetuneB / 100.0f) - 69) / 12.0);
 
   float adjustedVelocity = float(velocity)/127.0f;
   waveformA.frequency(freqA);
