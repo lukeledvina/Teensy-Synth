@@ -93,8 +93,8 @@ enum menuState {
   LFO_FILTER_FREQ,
   LFO_AMP,
   LFO_PITCH,
-  LFO_FILTER_FREQ_WAVEFORM
-  // LFO_FILTER_FREQ_FREQUENCY,
+  LFO_FILTER_FREQ_WAVEFORM,
+  LFO_FILTER_FREQ_FREQUENCY
   // LFO_FILTER_FREQ_AMOUNT,
   // LFO_FILTER_FREQ_ON_OFF
 };
@@ -244,7 +244,8 @@ float currentDetuneB = 0;
 int lfoFilterFreqWaveform = WAVEFORM_SINE;
 bool lfoFilterFreqOn = false;
 float lfoFilterFreqAmplitude = 1.0f;
-float lfoFilterFreqFrequency = 20.0f;
+float lfoFilterFreqFrequency = 1.0f;
+float maxLFOFilterFreqFrequency = 900.0f;
 
 enum filterType {
   LOW_PASS,
@@ -603,6 +604,19 @@ void applyFilterResonance() {
   display.display();
 }
 
+void applyLFOFilterFreqFrequency() {
+
+  lfoFilterFreq.frequency(lfoFilterFreqFrequency);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("LFO Freq:");
+  display.print(lfoFilterFreqFrequency);
+  display.println(" Hz");
+  display.display();
+}
+
 void setup() {
   Serial.begin(9600);
 
@@ -628,11 +642,11 @@ void setup() {
 
 
   filterModMixer.gain(0, 1);
-  filterModMixer.gain(1, 1);
+  filterModMixer.gain(1, 0); //when turning LFO on, turn this gain to 1,
 
-  // lfoFilterFreq.begin(lfoFilterFreqWaveform);
-  // lfoFilterFreq.amplitude(lfoFilterFreqAmplitude);
-  // lfoFilterFreq.frequency(lfoFilterFreqFrequency);
+  lfoFilterFreq.begin(lfoFilterFreqWaveform);
+  lfoFilterFreq.amplitude(lfoFilterFreqAmplitude);
+  lfoFilterFreq.frequency(lfoFilterFreqFrequency);
 
 
 
@@ -882,6 +896,11 @@ void forward() {
       updateMenu(lfoFilterFreqWaveformMenuPageNumber, lfoFilterFreqWaveformMenuIndex, lfoFilterFreqWaveformMenuLength, lfoFilterFreqWaveformMenuItems);
       break;
 
+    case LFO_FILTER_FREQ_FREQUENCY:
+      lfoFilterFreqFrequency = min(lfoFilterFreqFrequency + 0.1f, maxLFOFilterFreqFrequency);
+      applyLFOFilterFreqFrequency();
+      break;
+
     case LFO_AMP:
       // implement later
       break;
@@ -1070,6 +1089,11 @@ void backward() {
     case LFO_FILTER_FREQ_WAVEFORM:
       lfoFilterFreqWaveformMenuIndex = (lfoFilterFreqWaveformMenuIndex - 1) % lfoFilterFreqWaveformMenuLength;
       updateMenu(lfoFilterFreqWaveformMenuPageNumber, lfoFilterFreqWaveformMenuIndex, lfoFilterFreqWaveformMenuLength, lfoFilterFreqWaveformMenuItems);
+      break;
+
+    case LFO_FILTER_FREQ_FREQUENCY:
+      lfoFilterFreqFrequency = max(lfoFilterFreqFrequency - 0.1f, 0.0f);
+      applyLFOFilterFreqFrequency();
       break;
 
     case LFO_AMP:
@@ -1500,6 +1524,9 @@ void select() {
         lfoFilterFreqWaveformMenuIndex = 0;
         lfoFilterFreqWaveformMenuPageNumber = 0;
         updateMenu(lfoFilterFreqWaveformMenuPageNumber, lfoFilterFreqWaveformMenuIndex, lfoFilterFreqWaveformMenuLength, lfoFilterFreqWaveformMenuItems);
+      } else if (lfoFilterFreqMenuIndex == 1) {
+        currentMenu = LFO_FILTER_FREQ_FREQUENCY;
+        applyLFOFilterFreqFrequency();
       }
       break;
 
@@ -1525,6 +1552,10 @@ void select() {
       display.display();
       break;
 
+    case LFO_FILTER_FREQ_FREQUENCY:
+      //do nothing
+      break;
+    
     case LFO_AMP:
       // implement later
       break;
@@ -1786,6 +1817,13 @@ void goBack() {
       lfoFilterFreqMenuPageNumber = 0;
       updateMenu(lfoFilterFreqMenuPageNumber, lfoFilterFreqMenuIndex, lfoFilterFreqMenuLength, lfoFilterFreqMenuItems);
       break;
+
+    case LFO_FILTER_FREQ_FREQUENCY:
+      currentMenu = LFO_FILTER_FREQ;
+      lfoFilterFreqMenuIndex = 0;
+      lfoFilterFreqMenuPageNumber = 0;
+      updateMenu(lfoFilterFreqMenuPageNumber, lfoFilterFreqMenuIndex, lfoFilterFreqMenuLength, lfoFilterFreqMenuItems);
+      break;      
       
     case LFO_AMP:
       currentMenu = LFO_MAIN;
