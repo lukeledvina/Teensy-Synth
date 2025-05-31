@@ -92,7 +92,11 @@ enum menuState {
   LFO_MAIN,
   LFO_FILTER_FREQ,
   LFO_AMP,
-  LFO_PITCH
+  LFO_PITCH,
+  // LFO_FILTER_FREQ_WAVEFORM,
+  // LFO_FILTER_FREQ_FREQUENCY,
+  // LFO_FILTER_FREQ_AMOUNT,
+  // LFO_FILTER_FREQ_ON_OFF;
 };
 
 menuState currentMenu = MAIN;
@@ -247,6 +251,358 @@ filterType currentFilterType = LOW_PASS;
 
 int mostRecentNote;
 
+
+void updateMenu(int pageNumber, int& menuIndex, int menuLength, const char* menuItems[]) {
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE); // Reset text color so that when selecting options of multiples of 3, doesn't keep them highlighted
+
+  if (menuIndex < 0) menuIndex = menuLength - 1;
+
+  pageNumber = menuIndex/3;
+  int totalPages = (menuLength + itemsPerPage - 1) / itemsPerPage;
+  bool isLastPage = (pageNumber == totalPages - 1);
+  
+  int startIndex = pageNumber * itemsPerPage;
+  int endIndex = isLastPage ? menuLength : startIndex + itemsPerPage;
+
+  for (int i = startIndex; i < endIndex; i++) {
+    if (i == (menuIndex)) {
+      display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+    } else {
+      display.setTextColor(SSD1306_WHITE); 
+    }
+    display.setCursor(0, (i - startIndex) * 20);
+    display.println(menuItems[i]);
+  }
+
+  display.display();
+}
+
+void applyMainVolume() {
+  oscMixer.gain(0, oscAVolume * volume);
+  oscMixer.gain(1, oscBVolume * volume);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Volume:");
+  display.print(volume * 100);
+  display.println(" %");
+  display.display();
+}
+
+void applyAmpAttack() {
+  float norm = float(ampAttackEnvelopeStep) / envelopeStepsMax;
+  float warped = powf(norm, envelopeCurveAmount);
+  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
+  float linTime = norm * maxEnvelopeAmount;
+
+  ampAttack = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
+
+  ampEnvelope.attack(ampAttack);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Amp Attack:");
+  display.print(int(ampAttack));
+  display.println(" ms");
+  display.display();
+}
+
+void applyAmpDecay() {
+  float norm = float(ampDecayEnvelopeStep) / envelopeStepsMax;
+  float warped = powf(norm, envelopeCurveAmount);
+  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
+  float linTime = norm * maxEnvelopeAmount;
+
+  ampDecay = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
+
+  ampEnvelope.decay(ampDecay);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Amp Decay:");
+  display.print(int(ampDecay));
+  display.println(" ms");
+  display.display();
+}
+
+void applyAmpSustain() {
+  ampEnvelope.sustain(ampSustain);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Amp Sustain:");
+  display.print(ampSustain * 100);
+  display.println(" %");
+  display.display();
+}
+
+void applyAmpRelease() {
+  float norm = float(ampReleaseEnvelopeStep) / envelopeStepsMax;
+  float warped = powf(norm, envelopeCurveAmount);
+  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
+  float linTime = norm * maxEnvelopeAmount;
+
+  ampRelease = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
+
+  ampEnvelope.release(ampRelease);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Amp Release:");
+  display.print(int(ampRelease));
+  display.println(" ms");
+  display.display();  
+}
+
+void applyAmpAmount() {
+
+  amp1.gain(ampAmount);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Amp Amnt:");
+  display.println(ampAmount);
+  display.display();  
+}
+
+void applyFilterAttack() {
+  float norm = float(filterAttackEnvelopeStep) / envelopeStepsMax;
+  float warped = powf(norm, envelopeCurveAmount);
+  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
+  float linTime = norm * maxEnvelopeAmount;
+
+  filterAttack = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
+
+  filterEnvelope.attack(filterAttack);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Filter Attack:");
+  display.print(int(filterAttack));
+  display.println(" ms");
+  display.display();
+}
+
+void applyFilterDecay() {
+  float norm = float(filterDecayEnvelopeStep) / envelopeStepsMax;
+  float warped = powf(norm, envelopeCurveAmount);
+  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
+  float linTime = norm * maxEnvelopeAmount;
+
+  filterDecay = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
+
+  filterEnvelope.decay(filterDecay);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Filter Decay:");
+  display.print(int(filterDecay));
+  display.println(" ms");
+  display.display();
+}
+
+void applyFilterSustain() {
+  filterEnvelope.sustain(filterSustain);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Filter Sustain:");
+  display.print(filterSustain * 100);
+  display.println(" %");
+  display.display();
+}
+
+void applyFilterRelease() {
+  float norm = float(filterReleaseEnvelopeStep) / envelopeStepsMax;
+  float warped = powf(norm, envelopeCurveAmount);
+  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
+  float linTime = norm * maxEnvelopeAmount;
+
+  filterRelease = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
+
+  filterEnvelope.release(filterRelease);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Filter Release:");
+  display.print(int(filterRelease));
+  display.println(" ms");
+  display.display();  
+}
+
+void applyFilterAmount() {
+
+  filterEnvelopeAmp.gain(filterAmount);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Filter Amnt:");
+  display.println(filterAmount);
+  display.display();  
+}
+
+
+
+void applyPitchShiftA() {
+  // is handled in midi noteOn
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Pitch shft");
+  display.print(oscAPitchOffset);
+  display.print(" st");
+  display.display();
+}
+
+void applyDetuneA() {
+  // is handled in midi noteOn
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Detune:");
+  display.print(int(currentDetuneA));
+  display.print(" ct");
+  display.display();
+}
+
+void applyPulseWidthA() {
+  waveformA.pulseWidth(oscAPulseWidth);
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Pulse Wdth");
+  display.print(oscAPulseWidth);
+  display.print(" duty");
+  display.display();
+}
+
+void applyVolumeA() {
+
+  oscMixer.gain(0, oscAVolume * volume); //missing
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Volume:");
+  display.print(oscAVolume * 100);
+  display.println(" %");
+  display.display();
+}
+
+void applyPitchShiftB() {
+  // is handled in midi noteOn
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Pitch shft");
+  display.print(oscBPitchOffset);
+  display.print(" st");
+  display.display();
+}
+
+void applyDetuneB() {
+  // is handled in midi noteOn
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Detune:");
+  display.print(int(currentDetuneB));
+  display.print(" ct");
+  display.display();
+}
+
+void applyPulseWidthB() {
+  waveformB.pulseWidth(oscBPulseWidth);
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Pulse Wdth");
+  display.print(oscBPulseWidth);
+  display.print(" duty");
+  display.display();
+}
+
+void applyVolumeB() {
+  oscMixer.gain(1, oscBVolume * volume);  //BREAKS WHEN I ADD * VOLUME RIGHT HERE, OR NOT...???
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Volume:");
+  display.print(oscBVolume * 100);
+  display.println(" %");
+  display.display();
+}
+
+void onNoteOn(byte channel, byte note, byte velocity) {
+  mostRecentNote = note;
+
+  float freqA = 440.0 * pow(2.0, (note + oscAPitchOffset + (currentDetuneA / 100.0f) - 69) / 12.0);
+  float freqB = 440.0 * pow(2.0, (note + oscBPitchOffset + (currentDetuneB / 100.0f) - 69) / 12.0);
+
+  float adjustedVelocity = float(velocity)/127.0f;
+  waveformA.frequency(freqA);
+  waveformA.amplitude(adjustedVelocity);
+  waveformB.frequency(freqB);
+  waveformB.amplitude(adjustedVelocity);
+  
+  ampEnvelope.noteOn();
+  filterEnvelope.noteOn();
+}
+
+// This will need to be changed with envelope
+void onNoteOff(byte channel, byte note, byte velocity) {
+  // should work well for mono, may need to change for polyphony
+  if (note == mostRecentNote) {
+    ampEnvelope.noteOff();
+    filterEnvelope.noteOff();
+  }
+}
+
+
+void applyFilterCutoff() {
+  float filterCurve = powf(filterControl, filterCutoffCurve);
+  filterCutoffFreq = minCutoffFreq * powf(maxCutoffFreq / minCutoffFreq, filterCurve);
+
+  filter1.frequency(filterCutoffFreq);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Cutoff: ");
+  display.print((int)filterCutoffFreq);
+  display.println(" Hz");
+  display.display();
+}
+
+void applyFilterResonance() {
+  float adjustedResonance = minResonance + (maxResonance - minResonance) * filterResonance;
+
+  filter1.resonance(adjustedResonance);
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Resonance:");
+  display.print(filterResonance * 100);
+  display.println(" %");
+  display.display();
+}
+
+
+
 void setup() {
   Serial.begin(9600);
 
@@ -317,6 +673,32 @@ void setup() {
   display.clearDisplay();
   display.setTextSize(2);
   updateMenu(mainMenuPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
+}
+
+void loop() {
+  usbMIDI.read();
+
+  long newEncoderPosition = myEncoder.read();
+  long positionChange = newEncoderPosition - lastEncoderPosition;
+  encoderSwitch.update();
+
+  returnButton.update();
+
+  if (positionChange >= 4) {
+    lastEncoderPosition = newEncoderPosition;
+    forward();
+  } else if (positionChange <= -4) {
+    lastEncoderPosition = newEncoderPosition;
+    backward();
+  }
+  if (encoderSwitch.fallingEdge()) {
+    select();
+  }
+  // Add back button functionality
+  if(returnButton.fallingEdge()) {
+    goBack();
+  }
+
 }
 
 // Gets ran when encoder is rotated clockwise
@@ -493,6 +875,14 @@ void forward() {
     case LFO_FILTER_FREQ:
       lfoFilterFreqMenuIndex = (lfoFilterFreqMenuIndex + 1) % lfoFilterFreqMenuLength;
       updateMenu(lfoFilterFreqMenuPageNumber, lfoFilterFreqMenuIndex, lfoFilterFreqMenuLength, lfoFilterFreqMenuItems);
+      break;
+
+    case LFO_AMP:
+      // implement later
+      break;
+
+    case LFO_PITCH:
+      // implement later
       break;
   }
 }
@@ -671,6 +1061,15 @@ void backward() {
       lfoFilterFreqMenuIndex = (lfoFilterFreqMenuIndex - 1) % lfoFilterFreqMenuLength;
       updateMenu(lfoFilterFreqMenuPageNumber, lfoFilterFreqMenuIndex, lfoFilterFreqMenuLength, lfoFilterFreqMenuItems);
       break;
+
+    case LFO_AMP:
+      // implement later
+      break;
+
+    case LFO_PITCH:
+      // implement later
+      break;
+
   }
 }
 
@@ -1088,6 +1487,14 @@ void select() {
     case LFO_FILTER_FREQ:
     
       break;
+
+    case LFO_AMP:
+      // implement later
+      break;
+
+    case LFO_PITCH:
+      // implement later
+      break;
   }
 }
 
@@ -1349,381 +1756,5 @@ void goBack() {
       lfoMainMenuPageNumber = 0;
       updateMenu(lfoMainMenuPageNumber, lfoMainMenuIndex, lfoMainMenuLength, lfoMainMenuItems);
       break;
-}
-
-void loop() {
-  usbMIDI.read();
-
-  long newEncoderPosition = myEncoder.read();
-  long positionChange = newEncoderPosition - lastEncoderPosition;
-  encoderSwitch.update();
-
-  returnButton.update();
-
-  if (positionChange >= 4) {
-    lastEncoderPosition = newEncoderPosition;
-    forward();
-  } else if (positionChange <= -4) {
-    lastEncoderPosition = newEncoderPosition;
-    backward();
   }
-  if (encoderSwitch.fallingEdge()) {
-    select();
-  }
-  // Add back button functionality
-  if(returnButton.fallingEdge()) {
-    goBack();
-  }
-
-}
-
-void updateMenu(int pageNumber, int& menuIndex, int menuLength, const char* menuItems[]) {
-  display.clearDisplay();
-  display.setTextColor(SSD1306_WHITE); // Reset text color so that when selecting options of multiples of 3, doesn't keep them highlighted
-
-  if (menuIndex < 0) menuIndex = menuLength - 1;
-
-  pageNumber = menuIndex/3;
-  int totalPages = (menuLength + itemsPerPage - 1) / itemsPerPage;
-  bool isLastPage = (pageNumber == totalPages - 1);
-  
-  int startIndex = pageNumber * itemsPerPage;
-  int endIndex = isLastPage ? menuLength : startIndex + itemsPerPage;
-
-  for (int i = startIndex; i < endIndex; i++) {
-    if (i == (menuIndex)) {
-      display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
-    } else {
-      display.setTextColor(SSD1306_WHITE); 
-    }
-    display.setCursor(0, (i - startIndex) * 20);
-    display.println(menuItems[i]);
-  }
-
-  display.display();
-}
-
-void applyMainVolume() {
-  oscMixer.gain(0, oscAVolume * volume);
-  oscMixer.gain(1, oscBVolume * volume);
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Volume:");
-  display.print(volume * 100);
-  display.println(" %");
-  display.display();
-}
-
-void applyAmpAttack() {
-  float norm = float(ampAttackEnvelopeStep) / envelopeStepsMax;
-  float warped = powf(norm, envelopeCurveAmount);
-  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
-  float linTime = norm * maxEnvelopeAmount;
-
-  ampAttack = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
-
-  ampEnvelope.attack(ampAttack);
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Amp Attack:");
-  display.print(int(ampAttack));
-  display.println(" ms");
-  display.display();
-}
-
-void applyAmpDecay() {
-  float norm = float(ampDecayEnvelopeStep) / envelopeStepsMax;
-  float warped = powf(norm, envelopeCurveAmount);
-  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
-  float linTime = norm * maxEnvelopeAmount;
-
-  ampDecay = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
-
-  ampEnvelope.decay(ampDecay);
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Amp Decay:");
-  display.print(int(ampDecay));
-  display.println(" ms");
-  display.display();
-}
-
-void applyAmpSustain() {
-  ampEnvelope.sustain(ampSustain);
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Amp Sustain:");
-  display.print(ampSustain * 100);
-  display.println(" %");
-  display.display();
-}
-
-void applyAmpRelease() {
-  float norm = float(ampReleaseEnvelopeStep) / envelopeStepsMax;
-  float warped = powf(norm, envelopeCurveAmount);
-  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
-  float linTime = norm * maxEnvelopeAmount;
-
-  ampRelease = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
-
-  ampEnvelope.release(ampRelease);
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Amp Release:");
-  display.print(int(ampRelease));
-  display.println(" ms");
-  display.display();  
-}
-
-void applyAmpAmount() {
-
-  amp1.gain(ampAmount);
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Amp Amnt:");
-  display.println(ampAmount);
-  display.display();  
-}
-
-void applyFilterAttack() {
-  float norm = float(filterAttackEnvelopeStep) / envelopeStepsMax;
-  float warped = powf(norm, envelopeCurveAmount);
-  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
-  float linTime = norm * maxEnvelopeAmount;
-
-  filterAttack = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
-
-  filterEnvelope.attack(filterAttack);
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Filter Attack:");
-  display.print(int(filterAttack));
-  display.println(" ms");
-  display.display();
-}
-
-void applyFilterDecay() {
-  float norm = float(filterDecayEnvelopeStep) / envelopeStepsMax;
-  float warped = powf(norm, envelopeCurveAmount);
-  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
-  float linTime = norm * maxEnvelopeAmount;
-
-  filterDecay = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
-
-  filterEnvelope.decay(filterDecay);
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Filter Decay:");
-  display.print(int(filterDecay));
-  display.println(" ms");
-  display.display();
-}
-
-void applyFilterSustain() {
-  filterEnvelope.sustain(filterSustain);
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Filter Sustain:");
-  display.print(filterSustain * 100);
-  display.println(" %");
-  display.display();
-}
-
-void applyFilterRelease() {
-  float norm = float(filterReleaseEnvelopeStep) / envelopeStepsMax;
-  float warped = powf(norm, envelopeCurveAmount);
-  float expTime = minEnvelopeAmount * powf(maxEnvelopeAmount / minEnvelopeAmount, warped);
-  float linTime = norm * maxEnvelopeAmount;
-
-  filterRelease = linTime * (1.0f - mixAlpha) + expTime * mixAlpha;
-
-  filterEnvelope.release(filterRelease);
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Filter Release:");
-  display.print(int(filterRelease));
-  display.println(" ms");
-  display.display();  
-}
-
-void applyFilterAmount() {
-
-  filterEnvelopeAmp.gain(filterAmount);
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Filter Amnt:");
-  display.println(filterAmount);
-  display.display();  
-}
-
-
-
-void applyPitchShiftA() {
-  // is handled in midi noteOn
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Pitch shft");
-  display.print(oscAPitchOffset);
-  display.print(" st");
-  display.display();
-}
-
-void applyDetuneA() {
-  // is handled in midi noteOn
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Detune:");
-  display.print(int(currentDetuneA));
-  display.print(" ct");
-  display.display();
-}
-
-void applyPulseWidthA() {
-  waveformA.pulseWidth(oscAPulseWidth);
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Pulse Wdth");
-  display.print(oscAPulseWidth);
-  display.print(" duty");
-  display.display();
-}
-
-void applyVolumeA() {
-
-  oscMixer.gain(0, oscAVolume * volume); //missing
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Volume:");
-  display.print(oscAVolume * 100);
-  display.println(" %");
-  display.display();
-}
-
-void applyPitchShiftB() {
-  // is handled in midi noteOn
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Pitch shft");
-  display.print(oscBPitchOffset);
-  display.print(" st");
-  display.display();
-}
-
-void applyDetuneB() {
-  // is handled in midi noteOn
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Detune:");
-  display.print(int(currentDetuneB));
-  display.print(" ct");
-  display.display();
-}
-
-void applyPulseWidthB() {
-  waveformB.pulseWidth(oscBPulseWidth);
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Pulse Wdth");
-  display.print(oscBPulseWidth);
-  display.print(" duty");
-  display.display();
-}
-
-void applyVolumeB() {
-  oscMixer.gain(1, oscBVolume * volume);  //BREAKS WHEN I ADD * VOLUME RIGHT HERE, OR NOT...???
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Volume:");
-  display.print(oscBVolume * 100);
-  display.println(" %");
-  display.display();
-}
-
-void onNoteOn(byte channel, byte note, byte velocity) {
-  mostRecentNote = note;
-
-  float freqA = 440.0 * pow(2.0, (note + oscAPitchOffset + (currentDetuneA / 100.0f) - 69) / 12.0);
-  float freqB = 440.0 * pow(2.0, (note + oscBPitchOffset + (currentDetuneB / 100.0f) - 69) / 12.0);
-
-  float adjustedVelocity = float(velocity)/127.0f;
-  waveformA.frequency(freqA);
-  waveformA.amplitude(adjustedVelocity);
-  waveformB.frequency(freqB);
-  waveformB.amplitude(adjustedVelocity);
-  
-  ampEnvelope.noteOn();
-  filterEnvelope.noteOn();
-}
-
-// This will need to be changed with envelope
-void onNoteOff(byte channel, byte note, byte velocity) {
-  // should work well for mono, may need to change for polyphony
-  if (note == mostRecentNote) {
-    ampEnvelope.noteOff();
-    filterEnvelope.noteOff();
-  }
-}
-
-
-void applyFilterCutoff() {
-  float filterCurve = powf(filterControl, filterCutoffCurve);
-  filterCutoffFreq = minCutoffFreq * powf(maxCutoffFreq / minCutoffFreq, filterCurve);
-
-  filter1.frequency(filterCutoffFreq);
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Cutoff: ");
-  display.print((int)filterCutoffFreq);
-  display.println(" Hz");
-  display.display();
-}
-
-void applyFilterResonance() {
-  float adjustedResonance = minResonance + (maxResonance - minResonance) * filterResonance;
-
-  filter1.resonance(adjustedResonance);
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Resonance:");
-  display.print(filterResonance * 100);
-  display.println(" %");
-  display.display();
-
-
 }
