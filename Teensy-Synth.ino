@@ -93,10 +93,10 @@ enum menuState {
   LFO_FILTER_FREQ,
   LFO_AMP,
   LFO_PITCH,
-  // LFO_FILTER_FREQ_WAVEFORM,
+  LFO_FILTER_FREQ_WAVEFORM
   // LFO_FILTER_FREQ_FREQUENCY,
   // LFO_FILTER_FREQ_AMOUNT,
-  // LFO_FILTER_FREQ_ON_OFF;
+  // LFO_FILTER_FREQ_ON_OFF
 };
 
 menuState currentMenu = MAIN;
@@ -157,6 +157,11 @@ const char* lfoFilterFreqMenuItems[] = {"Waveform", "Freq", "Amount", "On/Off"};
 int lfoFilterFreqMenuIndex = 0;
 const int lfoFilterFreqMenuLength = sizeof(lfoFilterFreqMenuItems) / 4;
 int lfoFilterFreqMenuPageNumber = 0;
+
+const char* lfoFilterFreqWaveformMenuItems[] = {"Sine", "Sawtooth", "Square", "Triangle"};
+int lfoFilterFreqWaveformMenuIndex = 0;
+const int lfoFilterFreqWaveformMenuLength = sizeof(lfoFilterFreqWaveformMenuItems) / 4;
+int lfoFilterFreqWaveformMenuPageNumber = 0;
 
 int oscAPitchOffset = 0;
 float oscAPulseWidth = 0.5f;
@@ -453,8 +458,6 @@ void applyFilterAmount() {
   display.display();  
 }
 
-
-
 void applyPitchShiftA() {
   // is handled in midi noteOn
   display.clearDisplay();
@@ -571,7 +574,6 @@ void onNoteOff(byte channel, byte note, byte velocity) {
   }
 }
 
-
 void applyFilterCutoff() {
   float filterCurve = powf(filterControl, filterCutoffCurve);
   filterCutoffFreq = minCutoffFreq * powf(maxCutoffFreq / minCutoffFreq, filterCurve);
@@ -600,8 +602,6 @@ void applyFilterResonance() {
   display.println(" %");
   display.display();
 }
-
-
 
 void setup() {
   Serial.begin(9600);
@@ -877,6 +877,11 @@ void forward() {
       updateMenu(lfoFilterFreqMenuPageNumber, lfoFilterFreqMenuIndex, lfoFilterFreqMenuLength, lfoFilterFreqMenuItems);
       break;
 
+    case LFO_FILTER_FREQ_WAVEFORM:
+      lfoFilterFreqWaveformMenuIndex = (lfoFilterFreqWaveformMenuIndex + 1) % lfoFilterFreqWaveformMenuLength;
+      updateMenu(lfoFilterFreqWaveformMenuPageNumber, lfoFilterFreqWaveformMenuIndex, lfoFilterFreqWaveformMenuLength, lfoFilterFreqWaveformMenuItems);
+      break;
+
     case LFO_AMP:
       // implement later
       break;
@@ -1060,6 +1065,11 @@ void backward() {
     case LFO_FILTER_FREQ:
       lfoFilterFreqMenuIndex = (lfoFilterFreqMenuIndex - 1) % lfoFilterFreqMenuLength;
       updateMenu(lfoFilterFreqMenuPageNumber, lfoFilterFreqMenuIndex, lfoFilterFreqMenuLength, lfoFilterFreqMenuItems);
+      break;
+
+    case LFO_FILTER_FREQ_WAVEFORM:
+      lfoFilterFreqWaveformMenuIndex = (lfoFilterFreqWaveformMenuIndex - 1) % lfoFilterFreqWaveformMenuLength;
+      updateMenu(lfoFilterFreqWaveformMenuPageNumber, lfoFilterFreqWaveformMenuIndex, lfoFilterFreqWaveformMenuLength, lfoFilterFreqWaveformMenuItems);
       break;
 
     case LFO_AMP:
@@ -1485,7 +1495,34 @@ void select() {
       break;
 
     case LFO_FILTER_FREQ:
-    
+      if (lfoFilterFreqMenuIndex == 0) {
+        currentMenu = LFO_FILTER_FREQ_WAVEFORM;
+        lfoFilterFreqWaveformMenuIndex = 0;
+        lfoFilterFreqWaveformMenuPageNumber = 0;
+        updateMenu(lfoFilterFreqWaveformMenuPageNumber, lfoFilterFreqWaveformMenuIndex, lfoFilterFreqWaveformMenuLength, lfoFilterFreqWaveformMenuItems);
+      }
+      break;
+
+    case LFO_FILTER_FREQ_WAVEFORM:
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.setTextColor(SSD1306_WHITE);
+      display.println("Selected:");
+      if(lfoFilterFreqWaveformMenuIndex == 0) {
+        lfoFilterFreqWaveform = WAVEFORM_SINE;
+        display.println("Sine");
+      } else if (lfoFilterFreqWaveformMenuIndex == 1) {
+        lfoFilterFreqWaveform = WAVEFORM_SAWTOOTH;
+        display.println("Sawtooth");
+      } else if (lfoFilterFreqWaveformMenuIndex == 2) {
+        lfoFilterFreqWaveform = WAVEFORM_SQUARE;
+        display.println("Square");
+      } else if (lfoFilterFreqWaveformMenuIndex == 3) {
+        lfoFilterFreqWaveform = WAVEFORM_TRIANGLE;
+        display.println("Triangle");
+      } 
+      lfoFilterFreq.begin(lfoFilterFreqWaveform);  // might not want this here...
+      display.display();
       break;
 
     case LFO_AMP:
@@ -1741,6 +1778,13 @@ void goBack() {
       lfoMainMenuIndex = 0;
       lfoMainMenuPageNumber = 0;
       updateMenu(lfoMainMenuPageNumber, lfoMainMenuIndex, lfoMainMenuLength, lfoMainMenuItems);
+      break;
+
+    case LFO_FILTER_FREQ_WAVEFORM:
+      currentMenu = LFO_FILTER_FREQ;
+      lfoFilterFreqMenuIndex = 0;
+      lfoFilterFreqMenuPageNumber = 0;
+      updateMenu(lfoFilterFreqMenuPageNumber, lfoFilterFreqMenuIndex, lfoFilterFreqMenuLength, lfoFilterFreqMenuItems);
       break;
       
     case LFO_AMP:
