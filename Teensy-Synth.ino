@@ -16,35 +16,39 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 
 // GUItool: begin automatically generated code
-AudioSynthWaveformDc     dc1;            //xy=67.9000015258789,135.3444423675537
+AudioSynthWaveformDc     dc1;            //xy=71.89999389648438,67.34444427490234
 AudioSynthWaveform       waveformA;      //xy=72.14284896850586,271.14281272888184
 AudioSynthWaveform       waveformB;      //xy=74.23333740234375,386.23333740234375
-AudioEffectEnvelope      filterEnvelope;      //xy=244.87303161621094,130.1428623199463
-AudioMixer4              oscMixer;         //xy=254.6190071105957,290.33332443237305
-AudioAmplifier           filterEnvelopeAmp;           //xy=432.4814758300781,131.37037467956543
-AudioMixer4              filterTypeMixer;         //xy=570.4833374023438,258.98332595825195
-AudioFilterStateVariable filter1;        //xy=608.1261596679688,125.51904296875
-AudioEffectEnvelope      ampEnvelope;      //xy=751.1976852416992,258.7333335876465
-AudioAmplifier           amp1;           //xy=890.3047752380371,258.7333240509033
-AudioMixer4              mixerLeft;         //xy=982.4832763671875,119.23332977294922
-AudioMixer4              mixerRight;         //xy=998.4832763671875,396.23333740234375
-AudioOutputI2S           i2s1;           //xy=1041.4832763671875,262.23333740234375
+AudioEffectEnvelope      filterEnvelope;      //xy=236.873046875,67.14286041259766
+AudioMixer4              oscMixer;         //xy=355.5281410217285,280.33329010009766
+AudioSynthWaveform       lfoFilterFreq;      //xy=397.03028869628906,140.66671562194824
+AudioAmplifier           filterEnvelopeAmp;           //xy=424.48150634765625,68.3703842163086
+AudioMixer4              filterModMixer;         //xy=669.3241882324219,66.86968994140625
+AudioFilterStateVariable filter1;        //xy=892.398853302002,74.70086669921875
+AudioMixer4              filterTypeMixer;         //xy=1064.1197052001953,256.2560272216797
+AudioEffectEnvelope      ampEnvelope;      //xy=1360.2885665893555,258.73333740234375
+AudioAmplifier           amp1;           //xy=1499.3956565856934,258.7333278656006
+AudioMixer4              mixerLeft;         //xy=1591.5741577148438,119.23333358764648
+AudioMixer4              mixerRight;         //xy=1607.5741577148438,396.233341217041
+AudioOutputI2S           i2s1;           //xy=1650.5741577148438,262.233341217041
 AudioConnection          patchCord1(dc1, filterEnvelope);
 AudioConnection          patchCord2(waveformA, 0, oscMixer, 0);
 AudioConnection          patchCord3(waveformB, 0, oscMixer, 1);
 AudioConnection          patchCord4(filterEnvelope, filterEnvelopeAmp);
 AudioConnection          patchCord5(oscMixer, 0, filterTypeMixer, 3);
 AudioConnection          patchCord6(oscMixer, 0, filter1, 0);
-AudioConnection          patchCord7(filterEnvelopeAmp, 0, filter1, 1);
-AudioConnection          patchCord8(filterTypeMixer, ampEnvelope);
-AudioConnection          patchCord9(filter1, 0, filterTypeMixer, 0);
-AudioConnection          patchCord10(filter1, 1, filterTypeMixer, 1);
-AudioConnection          patchCord11(filter1, 2, filterTypeMixer, 2);
-AudioConnection          patchCord12(ampEnvelope, amp1);
-AudioConnection          patchCord13(amp1, 0, mixerLeft, 0);
-AudioConnection          patchCord14(amp1, 0, mixerRight, 0);
-AudioConnection          patchCord15(mixerLeft, 0, i2s1, 0);
-AudioConnection          patchCord16(mixerRight, 0, i2s1, 1);
+AudioConnection          patchCord7(lfoFilterFreq, 0, filterModMixer, 1);
+AudioConnection          patchCord8(filterEnvelopeAmp, 0, filterModMixer, 0);
+AudioConnection          patchCord9(filterModMixer, 0, filter1, 1);
+AudioConnection          patchCord10(filter1, 0, filterTypeMixer, 0);
+AudioConnection          patchCord11(filter1, 1, filterTypeMixer, 1);
+AudioConnection          patchCord12(filter1, 2, filterTypeMixer, 2);
+AudioConnection          patchCord13(filterTypeMixer, ampEnvelope);
+AudioConnection          patchCord14(ampEnvelope, amp1);
+AudioConnection          patchCord15(amp1, 0, mixerLeft, 0);
+AudioConnection          patchCord16(amp1, 0, mixerRight, 0);
+AudioConnection          patchCord17(mixerLeft, 0, i2s1, 0);
+AudioConnection          patchCord18(mixerRight, 0, i2s1, 1);
 AudioControlSGTL5000     sgtl5000_1;     //xy=539.1976928710938,504.411865234375
 // GUItool: end automatically generated code
 
@@ -84,12 +88,16 @@ enum menuState {
   PULSE_WIDTH_B,
   VOLUME_B,
   OSC_B_ON_OFF,
-  MAIN_VOLUME
+  MAIN_VOLUME,
+  LFO_MAIN,
+  LFO_FILTER_FREQ,
+  LFO_AMP,
+  LFO_PITCH
 };
 
 menuState currentMenu = MAIN;
 
-const char* mainMenuItems[] = {"Osc A", "Osc B", "Filter", "Amp Env", "Filter Env", "Volume", "Mono/Poly"};
+const char* mainMenuItems[] = {"Osc A", "Osc B", "Filter", "Amp Env", "Filter Env", "LFOs", "Volume", "Mono/Poly"};
 int mainMenuIndex = 0;
 const int mainMenuLength = sizeof(mainMenuItems) / 4;
 int mainMenuPageNumber = 0;
@@ -135,6 +143,16 @@ const char* filterEnvelopeMenuItems[] = {"Attack", "Decay", "Sustain", "Release"
 int filterEnvelopeMenuIndex = 0;
 const int filterEnvelopeMenuLength = sizeof(filterEnvelopeMenuItems) / 4;
 int filterEnvelopeMenuPageNumber = 0;
+
+const char* lfoMainMenuItems[] = {"Fltr Freq", "Amp", "Pitch"};
+int lfoMainMenuIndex = 0;
+const int lfoMainMenuLength = sizeof(lfoMainMenuItems) / 4;
+int lfoMainMenuPageNumber = 0;
+
+const char* lfoFilterFreqMenuItems[] = {"Waveform", "Freq", "Amount", "On/Off"};
+int lfoFilterFreqMenuIndex = 0;
+const int lfoFilterFreqMenuLength = sizeof(lfoFilterFreqMenuItems) / 4;
+int lfoFilterFreqMenuPageNumber = 0;
 
 int oscAPitchOffset = 0;
 float oscAPulseWidth = 0.5f;
@@ -214,7 +232,10 @@ float oscBVolume = 0.5f;
 float currentDetuneA = 0;
 float currentDetuneB = 0;
 
-
+int lfoFilterFreqWaveform = WAVEFORM_SINE;
+bool lfoFilterFreqOn = false;
+float lfoFilterFreqAmplitude = 1.0f;
+float lfoFilterFreqFrequency = 20.0f;
 
 enum filterType {
   LOW_PASS,
@@ -246,6 +267,18 @@ void setup() {
   mixerRight.gain(0, oscAGainRight);
 
   dc1.amplitude(1);
+
+
+
+
+  filterModMixer.gain(0, 1);
+  filterModMixer.gain(1, 1);
+
+  // lfoFilterFreq.begin(lfoFilterFreqWaveform);
+  // lfoFilterFreq.amplitude(lfoFilterFreqAmplitude);
+  // lfoFilterFreq.frequency(lfoFilterFreqFrequency);
+
+
 
   filterTypeMixer.gain(0, 0);
   filterTypeMixer.gain(1, 0);
@@ -451,6 +484,16 @@ void forward() {
       volume = min(volume + 0.02f, 1.00f);
       applyMainVolume();
       break;
+
+    case LFO_MAIN:
+      lfoMainMenuIndex = (lfoMainMenuIndex + 1) % lfoMainMenuLength;
+      updateMenu(lfoMainMenuPageNumber, lfoMainMenuIndex, lfoMainMenuLength, lfoMainMenuItems);
+      break;
+  
+    case LFO_FILTER_FREQ:
+      lfoFilterFreqMenuIndex = (lfoFilterFreqMenuIndex + 1) % lfoFilterFreqMenuLength;
+      updateMenu(lfoFilterFreqMenuPageNumber, lfoFilterFreqMenuIndex, lfoFilterFreqMenuLength, lfoFilterFreqMenuItems);
+      break;
   }
 }
 
@@ -618,6 +661,16 @@ void backward() {
       volume = max(volume - 0.02f, 0.00f);
       applyMainVolume();
       break;
+
+    case LFO_MAIN:
+      lfoMainMenuIndex = (lfoMainMenuIndex - 1) % lfoMainMenuLength;
+      updateMenu(lfoMainMenuPageNumber, lfoMainMenuIndex, lfoMainMenuLength, lfoMainMenuItems);
+      break;
+
+    case LFO_FILTER_FREQ:
+      lfoFilterFreqMenuIndex = (lfoFilterFreqMenuIndex - 1) % lfoFilterFreqMenuLength;
+      updateMenu(lfoFilterFreqMenuPageNumber, lfoFilterFreqMenuIndex, lfoFilterFreqMenuLength, lfoFilterFreqMenuItems);
+      break;
   }
 }
 
@@ -656,7 +709,14 @@ void select() {
         filterEnvelopeMenuIndex = 0;
         display.setCursor(0,0);
         updateMenu(filterEnvelopeMenuPageNumber, filterEnvelopeMenuIndex, filterEnvelopeMenuLength, filterEnvelopeMenuItems);
-      } else if (mainMenuIndex == 5) {
+      } else if(mainMenuIndex == 5) {
+        currentMenu = LFO_MAIN;
+        lfoMainMenuPageNumber = 0;
+        lfoMainMenuIndex = 0;
+        display.setCursor(0,0);
+        updateMenu(lfoMainMenuPageNumber, lfoMainMenuIndex, lfoMainMenuLength, lfoMainMenuItems);
+      }
+      else if (mainMenuIndex == 6) {
         currentMenu = MAIN_VOLUME;
         applyMainVolume();
       }
@@ -1009,6 +1069,25 @@ void select() {
     case MAIN_VOLUME:
       // do nothing
       break;
+
+    case LFO_MAIN:
+      if (lfoMainMenuIndex == 0) {
+        currentMenu = LFO_FILTER_FREQ;
+        lfoFilterFreqMenuIndex = 0;
+        lfoFilterFreqMenuPageNumber = 0;
+        updateMenu(lfoFilterFreqMenuPageNumber, lfoFilterFreqMenuIndex, lfoFilterFreqMenuLength, lfoFilterFreqMenuItems);
+      } else if(lfoMainMenuIndex == 1) {
+        // implement after filter freq
+        currentMenu = LFO_AMP;
+      } else if (lfoMainMenuIndex == 2) {
+        // implement after filter freq
+        currentMenu = LFO_PITCH;
+      }
+      break;
+
+    case LFO_FILTER_FREQ:
+    
+      break;
   }
 }
 
@@ -1242,7 +1321,34 @@ void goBack() {
       mainMenuPageNumber = 0;
       updateMenu(mainMenuPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
       break;   
-  }
+
+    case LFO_MAIN:
+      currentMenu = MAIN;
+      mainMenuIndex = 0;
+      mainMenuPageNumber = 0;
+      updateMenu(mainMenuPageNumber, mainMenuIndex, mainMenuLength, mainMenuItems);
+      break;
+
+    case LFO_FILTER_FREQ:
+      currentMenu = LFO_MAIN;
+      lfoMainMenuIndex = 0;
+      lfoMainMenuPageNumber = 0;
+      updateMenu(lfoMainMenuPageNumber, lfoMainMenuIndex, lfoMainMenuLength, lfoMainMenuItems);
+      break;
+      
+    case LFO_AMP:
+      currentMenu = LFO_MAIN;
+      lfoMainMenuIndex = 0;
+      lfoMainMenuPageNumber = 0;
+      updateMenu(lfoMainMenuPageNumber, lfoMainMenuIndex, lfoMainMenuLength, lfoMainMenuItems);
+      break;
+
+    case LFO_PITCH:
+      currentMenu = LFO_MAIN;
+      lfoMainMenuIndex = 0;
+      lfoMainMenuPageNumber = 0;
+      updateMenu(lfoMainMenuPageNumber, lfoMainMenuIndex, lfoMainMenuLength, lfoMainMenuItems);
+      break;
 }
 
 void loop() {
